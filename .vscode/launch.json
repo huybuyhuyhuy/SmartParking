@@ -1,0 +1,53 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Backend (Port 3002)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/backend",
+      "command": "set PORT=3002 && npm run dev"
+    },
+    {
+      "name": "Frontend: User Map (Port 5173)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend/user-map",
+      "command": "npm run dev"
+    },
+    {
+      "name": "Frontend: Digitalization Tool (Port 5174)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend/digitalization-tool",
+      "command": "npm run dev"
+    },
+    {
+      "name": "Frontend: IOC Dashboard (Port 5175)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend/ioc-dashboard",
+      "command": "npm run dev"
+    },
+    {
+      "name": "Frontend: Booking (Port 5176)",
+      "type": "node-terminal",
+      "request": "launch",
+      "cwd": "${workspaceFolder}/frontend/booking",
+      "command": "npm run dev"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Run All (Backend + 4 Frontends)",
+      "configurations": [
+        "Backend (Port 3002)",
+        "Frontend: User Map (Port 5173)",
+        "Frontend: Digitalization Tool (Port 5174)",
+        "Frontend: IOC Dashboard (Port 5175)",
+        "Frontend: Booking (Port 5176)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

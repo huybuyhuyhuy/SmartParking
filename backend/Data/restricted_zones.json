@@ -1,0 +1,506 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-CUA-NGAN",
+        "name": "Đường Cửa Ngăn",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm ô tô vào đường Cửa Ngăn trong khung giờ cao điểm",
+        "rules": "Cấm ô tô: 08:30–10:30 và 14:30–16:30 hàng ngày",
+        "time_ranges": ["08:30-10:30", "14:30-16:30"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5780, 16.4750], [107.5798, 16.4712], [107.5800, 16.4690]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-LE-HUAN",
+        "name": "Đường Lê Huân",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đậu xe trong giờ cấm ô tô Cửa Ngăn",
+        "rules": "Cấm đậu: 08:30–10:30 và 14:30–16:30 (từ Hai Bà Trưng đến Đặng Thái Thân)",
+        "time_ranges": ["08:30-10:30", "14:30-16:30"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5830, 16.4685], [107.5820, 16.4700], [107.5800, 16.4710]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-DANG-THAI-THAN",
+        "name": "Đường Đặng Thái Thân",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đậu xe trong giờ cấm ô tô Cửa Ngăn",
+        "rules": "Cấm đậu: 08:30–10:30 và 14:30–16:30 (từ Lê Huân đến Đoàn Thị Điểm)",
+        "time_ranges": ["08:30-10:30", "14:30-16:30"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5800, 16.4710], [107.5790, 16.4720], [107.5775, 16.4730]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-CUA-QUANG-DUC",
+        "name": "Cửa Quảng Đức",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["BUS", "TRUCK"],
+        "description": "Cấm xe khách & xe tải theo giờ",
+        "rules": "Cấm xe khách và xe tải: 06:00–07:30, 11:00–13:30, 16:30–18:00",
+        "time_ranges": ["06:00-07:30", "11:00-13:30", "16:30-18:00"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5760, 16.4710], [107.5770, 16.4700]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-CUA-HUU",
+        "name": "Cửa Hữu",
+        "restriction_type": "ABSOLUTE_BAN",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm ô tô 1 chiều, hạn chế tải trọng",
+        "rules": "Cấm ô tô 1 chiều. Hạn chế xe tải >3.5T.",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5750, 16.4680], [107.5745, 16.4670]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-CHANH-TAY",
+        "name": "Cửa Chánh Tây",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm ô tô giờ cao điểm",
+        "rules": "Cấm ô tô: 06:00–07:30, 11:00–13:30, 16:30–18:00",
+        "time_ranges": ["06:00-07:30", "11:00-13:30", "16:30-18:00"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5730, 16.4700], [107.5735, 16.4690]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-MAI-THUC-LOAN",
+        "name": "Đường Mai Thúc Loan",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm 2 chiều + quy định chẵn lẻ",
+        "rules": "Cấm 2 chiều. Đỗ xe theo ngày chẵn/lẻ: 06:00–22:00",
+        "time_ranges": ["06:00-22:00"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5740, 16.4720], [107.5730, 16.4735]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-TRAN-HUNG-DAO",
+        "name": "Đường Trần Hưng Đạo",
+        "restriction_type": "VEHICLE_RESTRICTED",
+        "vehicle_types": ["TRUCK"],
+        "description": "Cấm xe tải >3.5T",
+        "rules": "Cấm xe tải >3.5T. Xe tải nhỏ được lưu thông ngoài giờ cao điểm.",
+        "time_ranges": [],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Bắc sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5900, 16.4720], [107.5950, 16.4700], [107.6000, 16.4680]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-HUYNH-THUC-KHANG",
+        "name": "Đường Huỳnh Thúc Kháng",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["TRUCK", "BUS"],
+        "description": "Hạn chế xe tải và xe khách giờ cao điểm",
+        "rules": "Hạn chế lưu thông: 06:00–07:30, 11:00–13:30, 16:30–18:00",
+        "time_ranges": ["06:00-07:30", "11:00-13:30", "16:30-18:00"],
+        "fine": "400.000 – 600.000 VNĐ",
+        "area": "Phía Bắc sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5880, 16.4740], [107.5920, 16.4730]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-DAO-DUY-ANH",
+        "name": "Đường Đào Duy Anh",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["TRUCK", "BUS"],
+        "description": "Hạn chế xe tải và xe khách",
+        "rules": "Hạn chế lưu thông giờ cao điểm: 06:00–07:30, 16:30–18:00",
+        "time_ranges": ["06:00-07:30", "16:30-18:00"],
+        "fine": "400.000 – 600.000 VNĐ",
+        "area": "Phía Bắc sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5910, 16.4750], [107.5940, 16.4760]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-TANG-BAT-HO",
+        "name": "Đường Tăng Bạt Hổ",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["TRUCK"],
+        "description": "Hạn chế xe tải",
+        "rules": "Hạn chế xe tải >3.5T. Cấm đỗ trong giờ cao điểm.",
+        "time_ranges": ["06:00-07:30", "16:30-18:00"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Bắc sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5860, 16.4720], [107.5890, 16.4740]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-HOANG-DIEU",
+        "name": "Đường Hoàng Diệu",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["TRUCK", "BUS"],
+        "description": "Hạn chế xe tải và xe khách",
+        "rules": "Hạn chế lưu thông giờ cao điểm: 06:00–07:30, 16:30–18:00",
+        "time_ranges": ["06:00-07:30", "16:30-18:00"],
+        "fine": "400.000 – 600.000 VNĐ",
+        "area": "Phía Bắc sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5840, 16.4730], [107.5850, 16.4745]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-LE-LOI",
+        "name": "Đường Lê Lợi",
+        "restriction_type": "ABSOLUTE_BAN",
+        "vehicle_types": ["CAR", "TRUCK", "BUS", "MOTORBIKE"],
+        "description": "Cấm đỗ tuyệt đối, hạn chế xe khách",
+        "rules": "Cấm đỗ xe tuyệt đối trên toàn tuyến. Hạn chế xe khách lưu thông. Xe đỗ sai: phạt 800.000–1.000.000 VNĐ (ô tô), 400.000–600.000 VNĐ (xe máy).",
+        "fine": "800.000 – 1.000.000 VNĐ (ô tô) / 400.000 – 600.000 VNĐ (xe máy)",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5815, 16.4685], [107.5850, 16.4660], [107.5900, 16.4640], [107.5940, 16.4620]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-PHAN-BOI-CHAU",
+        "name": "Đường Phan Bội Châu",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đỗ theo giờ",
+        "rules": "Cấm đỗ: 06:00–07:30 và 16:30–18:00 hàng ngày",
+        "time_ranges": ["06:00-07:30", "16:30-18:00"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5850, 16.4650], [107.5880, 16.4630], [107.5920, 16.4600]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-TRAN-PHU",
+        "name": "Đường Trần Phú",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["BUS"],
+        "description": "Cấm ô tô khách giờ cao điểm",
+        "rules": "Cấm xe khách: 06:00–07:30, 11:00–13:30, 16:30–18:00",
+        "time_ranges": ["06:00-07:30", "11:00-13:30", "16:30-18:00"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5900, 16.4630], [107.5950, 16.4610]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-HUNG-VUONG",
+        "name": "Đường Hùng Vương",
+        "restriction_type": "TIME_RESTRICTED",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đỗ giờ cao điểm",
+        "rules": "Cấm đỗ: 06:00–07:30, 11:00–13:30, 16:30–18:00",
+        "time_ranges": ["06:00-07:30", "11:00-13:30", "16:30-18:00"],
+        "fine": "800.000 – 1.000.000 VNĐ (ô tô) / 400.000 – 600.000 VNĐ (xe máy)",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5860, 16.4640], [107.5920, 16.4600], [107.5960, 16.4570]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-NGUYEN-CONG-TRU",
+        "name": "Đường Nguyễn Công Trứ",
+        "restriction_type": "ABSOLUTE_BAN",
+        "vehicle_types": ["CAR", "TRUCK", "BUS", "MOTORBIKE"],
+        "description": "Cấm đỗ xe trên toàn tuyến",
+        "rules": "Cấm đỗ xe tuyệt đối. Xe vi phạm sẽ bị phạt 800.000–1.000.000 VNĐ (ô tô).",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5840, 16.4660], [107.5860, 16.4640]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-LE-HONG-PHONG",
+        "name": "Đường Lê Hồng Phong",
+        "restriction_type": "ABSOLUTE_BAN",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đỗ xe trên toàn tuyến",
+        "rules": "Cấm đỗ tuyệt đối. Xe vi phạm: phạt 800.000–1.000.000 VNĐ.",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5930, 16.4610], [107.5970, 16.4590]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-BEN-NGHE",
+        "name": "Đường Bến Nghé",
+        "restriction_type": "ABSOLUTE_BAN",
+        "vehicle_types": ["CAR", "TRUCK", "BUS", "MOTORBIKE"],
+        "description": "Cấm đỗ xe trên toàn tuyến",
+        "rules": "Cấm đỗ tuyệt đối. Khu vực đông khách du lịch. Xe đỗ sai: phạt 800.000–1.000.000 VNĐ (ô tô).",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5820, 16.4670], [107.5850, 16.4655]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-NGUYEN-THI-MINH-KHAI",
+        "name": "Đường Nguyễn Thị Minh Khai",
+        "restriction_type": "ABSOLUTE_BAN",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đỗ xe trên toàn tuyến",
+        "rules": "Cấm đỗ tuyệt đối. Xe vi phạm: phạt 800.000–1.000.000 VNĐ.",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Phía Nam sông Hương"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5950, 16.4580], [107.5980, 16.4560]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-VO-NGUYEN-GIAP",
+        "name": "Đường Võ Nguyên Giáp",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đỗ xe khu vực AEON Mall",
+        "rules": "Cấm đỗ xe trên đường chính. Sử dụng bãi đỗ xe AEON Mall (miễn phí).",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu AEON Mall"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.6000, 16.4550], [107.6050, 16.4500]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-HAI-BA-TRUNG",
+        "name": "Đường Hai Bà Trưng",
+        "restriction_type": "ABSOLUTE_BAN",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đỗ tuyệt đối trên vỉa hè",
+        "rules": "Cấm đỗ trên vỉa hè. Xe phải quay đầu ra ngoài, cách mép bó vỉa 0.3m.",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Trung tâm"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5850, 16.4650], [107.5880, 16.4600]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-BA-TRIEU",
+        "name": "Đường Bà Triệu",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["CAR", "MOTORBIKE"],
+        "description": "Cấm đỗ theo ngày chẵn/lẻ và giờ cao điểm",
+        "rules": "Đỗ xe theo ngày chẵn/lẻ. Cấm đỗ: 06:30–08:30 và 16:30–18:30.",
+        "time_ranges": ["06:30-08:30", "16:30-18:30"],
+        "fine": "400.000 – 600.000 VNĐ",
+        "area": "Trung tâm"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5950, 16.4650], [107.5980, 16.4580]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-TRUONG-CHINH",
+        "name": "Đường Trường Chinh",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Cấm đỗ theo giờ cao điểm",
+        "rules": "Cấm đỗ: 06:30–08:30 và 16:30–18:30.",
+        "time_ranges": ["06:30-08:30", "16:30-18:30"],
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Ngoại vi"
+      },
+      "geometry": {
+        "type": "LineString",
+        "coordinates": [[107.5900, 16.4550], [107.6000, 16.4500]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "ZONE-DAI-NOI-AREA",
+        "name": "Khu vực Đại Nội",
+        "restriction_type": "CONDITIONAL",
+        "vehicle_types": ["CAR", "TRUCK", "BUS"],
+        "description": "Khu vực hạn chế xe quanh Đại Nội",
+        "rules": "Nhiều tuyến đường quanh Đại Nội cấm ô tô theo giờ. Ưu tiên gửi xe tại Bến xe Nguyễn Hoàng (~12.000 VNĐ/lượt) cách Cửa Ngăn 200m.",
+        "fine": "800.000 – 1.000.000 VNĐ",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [[
+          [107.5710, 16.4760],
+          [107.5820, 16.4760],
+          [107.5820, 16.4660],
+          [107.5710, 16.4660],
+          [107.5710, 16.4760]
+        ]]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "PARKING-NGUYEN-HOANG",
+        "name": "Bến xe Nguyễn Hoàng",
+        "restriction_type": "PARKING",
+        "vehicle_types": ["CAR", "MOTORBIKE", "TRUCK", "BUS"],
+        "description": "Bãi đỗ xe công cộng - Gần Cửa Ngăn",
+        "rules": "Giá: ~12.000 VNĐ/lượt (cả ngày). Phù hợp tham quan Đại Nội. Cách Cửa Ngăn ~200m.",
+        "parking_type": "public",
+        "price": "12.000 VNĐ/lượt",
+        "area": "Khu Đại Nội"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [107.5785, 16.4730]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "PARKING-AEON",
+        "name": "AEON Mall Huế",
+        "restriction_type": "PARKING",
+        "vehicle_types": ["CAR", "MOTORBIKE"],
+        "description": "Bãi đỗ xe trung tâm thương mại - Miễn phí",
+        "rules": "Bãi rộng, phí thấp hoặc miễn phí. Có bảo vệ 24/7. Phù hợp đỗ xe dài ngày.",
+        "parking_type": "mall",
+        "price": "Miễn phí / Phí thấp",
+        "area": "Khu AEON Mall"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [107.6030, 16.4520]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "PARKING-BIGC",
+        "name": "BigC Huế",
+        "restriction_type": "PARKING",
+        "vehicle_types": ["CAR", "MOTORBIKE"],
+        "description": "Bãi đỗ xe siêu thị - Miễn phí",
+        "rules": "Bãi rộng, miễn phí cho khách mua sắm. Có bảo vệ.",
+        "parking_type": "mall",
+        "price": "Miễn phí",
+        "area": "Trung tâm"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [107.5960, 16.4560]
+      }
+    }
+  ]
+}

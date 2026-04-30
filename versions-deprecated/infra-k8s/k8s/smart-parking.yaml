@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: parking-service
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: parking-service
+  template:
+    metadata:
+      labels:
+        app: parking-service
+    spec:
+      containers:
+        - name: parking-service
+          image: smartparking/parking-service:1.0.0
+          ports:
+            - containerPort: 8082
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: parking-service
+spec:
+  selector:
+    app: parking-service
+  ports:
+    - port: 8082
+      targetPort: 8082
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: parking-service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: parking-service
+  minReplicas: 3
+  maxReplicas: 12
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65

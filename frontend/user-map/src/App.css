@@ -1,0 +1,724 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100%;
+  position: relative;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.map-container {
+  flex: 1;
+  height: 100%;
+}
+
+/* ===== PARKING LOT LIST PANEL ===== */
+.lot-list-panel {
+  position: absolute;
+  top: 70px;
+  left: 12px;
+  z-index: 1100;
+  background: white;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  width: 280px;
+  max-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 0.2s;
+}
+.lot-list-panel.closed { width: auto; }
+.lot-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 14px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+  color: white;
+  cursor: pointer;
+  user-select: none;
+}
+.lot-list-header h3 { font-size: 13px; margin: 0; font-weight: 700; }
+.lot-list-toggle { font-size: 18px; font-weight: 800; line-height: 1; }
+.lot-list-body {
+  overflow-y: auto;
+  max-height: 50vh;
+  padding: 8px;
+}
+.lot-list-empty { text-align: center; color: #9ca3af; padding: 20px; font-size: 12px; }
+
+.lot-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  gap: 8px;
+  transition: background 0.15s;
+}
+.lot-card:hover { background: #f8fafc; border-color: #2563eb; }
+.lot-card-info { flex: 1; min-width: 0; }
+.lot-card-name { font-size: 13px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lot-card-meta { display: flex; gap: 10px; margin-top: 3px; }
+.lot-card-slots { font-size: 11px; color: #16a34a; font-weight: 600; }
+.lot-card-price { font-size: 11px; color: #64748b; }
+.lot-card-ev {
+  display: inline-block;
+  font-size: 10px;
+  background: #dbeafe;
+  color: #1e40af;
+  padding: 1px 6px;
+  border-radius: 3px;
+  font-weight: 600;
+  margin-top: 2px;
+}
+.lot-card .btn-sm { flex-shrink: 0; }
+
+/* ===== VEHICLE SELECTOR ===== */
+.vehicle-select {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.vehicle-select option {
+  background: #1e3a5f;
+  color: white;
+}
+.vehicle-select:focus { outline: none; border-color: rgba(255,255,255,0.6); }
+
+/* ===== WARNING TOASTS ===== */
+.warning-toast-container {
+  position: fixed;
+  top: 70px;
+  right: 16px;
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 380px;
+}
+.warning-toast {
+  border-radius: 10px;
+  padding: 12px 14px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  animation: slideInRight 0.3s ease-out;
+  font-size: 13px;
+}
+.warning-toast.danger {
+  background: #fef2f2;
+  border: 2px solid #ef4444;
+  border-left: 5px solid #dc2626;
+}
+.warning-toast.warning {
+  background: #fffbeb;
+  border: 2px solid #f59e0b;
+  border-left: 5px solid #d97706;
+}
+.warning-toast-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+.warning-toast-icon {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 13px;
+  flex-shrink: 0;
+  color: white;
+}
+.warning-toast.danger .warning-toast-icon { background: #ef4444; }
+.warning-toast.warning .warning-toast-icon { background: #f59e0b; }
+.warning-toast-msg { flex: 1; font-weight: 600; color: #1e293b; line-height: 1.4; }
+.warning-toast-close {
+  background: none;
+  border: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #9ca3af;
+  padding: 0 2px;
+  line-height: 1;
+}
+.warning-toast-detail { margin-top: 6px; font-size: 12px; color: #64748b; line-height: 1.5; }
+.warning-toast-fine { margin-top: 4px; font-size: 12px; font-weight: 700; color: #dc2626; }
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+/* ===== ZONE POPUP ===== */
+.zone-popup { min-width: 260px; max-width: 340px; }
+.zone-popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  padding-left: 8px;
+}
+.zone-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.zone-name { font-size: 15px; color: #1e293b; }
+.zone-alert-active {
+  background: #fee2e2;
+  color: #dc2626;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+.zone-desc { font-size: 13px; color: #374151; margin-bottom: 8px; line-height: 1.5; }
+.zone-details {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 8px 10px;
+}
+.zone-detail-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 4px 0;
+  font-size: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  gap: 8px;
+}
+.zone-detail-row:last-child { border-bottom: none; }
+.zone-detail-row span:first-child { color: #64748b; font-weight: 600; white-space: nowrap; }
+.zone-detail-row span:last-child { text-align: right; color: #1e293b; }
+.zone-detail-row .fine { color: #dc2626; font-weight: 700; }
+
+/* Popup nav button */
+.popup-nav-btn {
+  margin-top: 10px;
+  width: 100%;
+  background: #2563eb;
+  color: white;
+  border: none;
+  padding: 8px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+}
+.popup-nav-btn:hover { background: #1d4ed8; }
+
+/* ===== PARKING MARKER ===== */
+.parking-icon { background: transparent; }
+.parking-marker {
+  width: 32px; height: 32px;
+  background: #16a34a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 16px;
+  border: 3px solid white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+}
+
+/* ===== TRAFFIC PANEL ===== */
+.traffic-panel {
+  position: absolute;
+  top: 56px;
+  right: 16px;
+  z-index: 1500;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+  width: 380px;
+  max-height: 75vh;
+  overflow-y: auto;
+}
+.traffic-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid #e5e7eb;
+  position: sticky;
+  top: 0;
+  background: white;
+  border-radius: 12px 12px 0 0;
+  z-index: 1;
+}
+.traffic-panel-header h3 { font-size: 15px; color: #1e3a5f; margin: 0; }
+.traffic-panel-body { padding: 14px 16px; }
+.traffic-location { font-size: 12px; color: #64748b; margin-bottom: 12px; }
+
+.traffic-rule-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 12px;
+  margin-bottom: 10px;
+  border: 1px solid #e5e7eb;
+}
+.traffic-rule-item.active-ban {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+.traffic-rule-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.traffic-rule-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: white;
+}
+.traffic-rule-badge.danger { background: #ef4444; }
+.traffic-rule-badge.warning { background: #f59e0b; }
+.traffic-distance { font-size: 11px; color: #6b7280; margin-left: auto; }
+.traffic-rule-desc { font-size: 12px; color: #4b5563; margin-bottom: 6px; line-height: 1.4; }
+.traffic-rule-meta { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #64748b; }
+.traffic-fine { color: #dc2626; font-weight: 700; }
+
+.nearby-parking-section { margin-top: 16px; }
+.nearby-parking-section h4 { font-size: 13px; color: #16a34a; margin-bottom: 8px; border-bottom: 1px solid #dcfce7; padding-bottom: 4px; }
+.parking-suggestion {
+  background: #f0fdf4;
+  border-radius: 8px;
+  padding: 10px;
+  margin-bottom: 8px;
+  border: 1px solid #bbf7d0;
+}
+.parking-suggestion-header { display: flex; align-items: center; gap: 8px; }
+.parking-icon-small {
+  width: 28px; height: 28px;
+  background: #16a34a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+.parking-distance { display: block; font-size: 11px; color: #6b7280; }
+.parking-suggestion-info { margin-top: 6px; font-size: 11px; color: #374151; display: flex; flex-direction: column; gap: 2px; }
+
+.traffic-general-rules { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
+.traffic-general-rules h4 { font-size: 13px; color: #1e3a5f; margin-bottom: 8px; }
+.traffic-general-rules ul { list-style: none; padding: 0; }
+.traffic-general-rules li {
+  font-size: 11px;
+  color: #4b5563;
+  padding: 3px 0;
+  padding-left: 14px;
+  position: relative;
+}
+.traffic-general-rules li::before {
+  content: "•";
+  position: absolute;
+  left: 2px;
+  color: #2563eb;
+  font-weight: bold;
+}
+.traffic-general-rules li.rule-fine {
+  color: #dc2626;
+  font-weight: 600;
+  padding-top: 4px;
+}
+
+/* ===== HEADER ===== */
+.top-header {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 16px;
+  background: linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+}
+.header-left h1 {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0;
+}
+.header-left .last-update {
+  font-size: 10px;
+  opacity: 0.8;
+  display: block;
+}
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.user-name { font-size: 12px; font-weight: 600; }
+
+/* ===== BUTTONS ===== */
+.btn {
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.btn-sm { padding: 5px 12px; font-size: 11px; }
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-outline { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
+.btn-outline:hover { background: rgba(255,255,255,0.25); }
+.btn-block { width: 100%; padding: 10px; font-size: 14px; }
+.btn-momo { background: #d82d8b; color: white; text-decoration: none; text-align: center; display: block; }
+.btn-momo:hover { background: #c0247a; }
+.btn-link { background: none; color: #2563eb; text-decoration: underline; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ===== FILTER PANEL ===== */
+.filter-panel {
+  position: absolute;
+  top: 52px;
+  left: 16px;
+  z-index: 999;
+  background: white;
+  padding: 12px 16px;
+  border-radius: 0 0 8px 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.filter-input {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+  min-width: 180px;
+}
+.filter-select {
+  padding: 6px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 13px;
+}
+.filter-check {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.filter-count {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* ===== MODAL ===== */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.modal {
+  background: white;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 440px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+.modal-sm { max-width: 380px; }
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid #e5e7eb;
+}
+.modal-header h2 { font-size: 16px; margin: 0; }
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 20px;
+  cursor: pointer;
+  color: #9ca3af;
+  line-height: 1;
+}
+.modal-body { padding: 20px; }
+
+/* ===== FORM ===== */
+.form-group { margin-bottom: 14px; }
+.form-group label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+.form-group input, .form-group select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.form-group input:focus, .form-group select:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
+.required { color: #ef4444; }
+
+/* ===== LOT INFO ===== */
+.lot-info { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.lot-badge {
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.lot-badge.available { background: #dcfce7; color: #166534; }
+.lot-badge.price { background: #fef3c7; color: #92400e; }
+.lot-badge.ev { background: #dbeafe; color: #1e40af; }
+
+.total-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  background: #f0f9ff;
+  border-radius: 8px;
+  margin-bottom: 14px;
+  font-weight: 600;
+}
+.total-amount { font-size: 18px; color: #2563eb; }
+
+/* ===== PAYMENT ===== */
+.payment-section { text-align: center; }
+.booking-success { margin-bottom: 16px; }
+.success-icon {
+  width: 48px; height: 48px;
+  background: #dcfce7;
+  color: #16a34a;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  margin: 0 auto 8px;
+}
+.success-icon.large { width: 64px; height: 64px; font-size: 32px; }
+.payment-hint { font-size: 13px; color: #6b7280; margin-bottom: 12px; }
+.qr-image { width: 200px; height: 200px; margin: 0 auto 12px; display: block; border: 3px solid #e5e7eb; border-radius: 8px; }
+.waiting-text { font-size: 12px; color: #f59e0b; margin-top: 8px; font-style: italic; }
+
+/* ===== QR RESULT ===== */
+.qr-result-section { text-align: center; }
+.qr-info { margin: 12px 0; font-size: 13px; }
+.qr-info p { margin: 4px 0; }
+.qr-note { color: #f59e0b; font-weight: 600; margin-top: 8px; font-size: 12px; }
+
+/* ===== HISTORY ===== */
+.history-list { max-height: 350px; overflow-y: auto; }
+.history-item { padding: 12px; border-bottom: 1px solid #f3f4f6; }
+.history-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+.history-detail { font-size: 12px; color: #6b7280; }
+.status-badge {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.status-badge.PAID { background: #dcfce7; color: #166534; }
+.status-badge.PENDING { background: #fef3c7; color: #92400e; }
+.status-badge.FAILED { background: #fee2e2; color: #991b1b; }
+.empty-text { text-align: center; color: #9ca3af; padding: 20px; }
+
+/* ===== AUTH ERROR ===== */
+.auth-error-msg {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  border: 1px solid #fca5a5;
+}
+
+/* ===== ENHANCED LEGEND ===== */
+.legend.enhanced {
+  position: absolute;
+  bottom: 16px;
+  right: 16px;
+  z-index: 1000;
+  background: white;
+  padding: 12px 14px;
+  border-radius: 10px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+  border: 1px solid #e2e8f0;
+  min-width: 240px;
+  max-width: 280px;
+  font-size: 11px;
+}
+.legend.enhanced h4 {
+  font-size: 13px;
+  margin-bottom: 10px;
+  color: #1e293b;
+  border-bottom: 2px solid #2563eb;
+  padding-bottom: 6px;
+}
+.legend-section { margin-bottom: 6px; }
+.legend-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: block;
+  margin-bottom: 4px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 3px 0;
+  font-size: 11px;
+  color: #374151;
+}
+.legend-dot { width: 10px; height: 10px; border-radius: 50%; border: 1px solid rgba(0,0,0,0.1); flex-shrink: 0; }
+.legend-dot.green { background: #22c55e; }
+.legend-dot.red { background: #ef4444; }
+.legend-icon {
+  width: 22px; height: 22px;
+  background: #16a34a;
+  color: white;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+.legend-line {
+  width: 24px;
+  height: 4px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.legend-line.solid-red {
+  background: #ef4444;
+  height: 4px;
+}
+.legend-line.solid-orange {
+  background: #f59e0b;
+  height: 4px;
+}
+.legend-line.dashed-orange {
+  background: repeating-linear-gradient(90deg, #f59e0b 0px, #f59e0b 6px, transparent 6px, transparent 10px);
+  height: 4px;
+}
+.legend-line.dashed-yellow {
+  background: repeating-linear-gradient(90deg, #f59e0b 0px, #f59e0b 6px, transparent 6px, transparent 10px);
+  height: 4px;
+  opacity: 0.6;
+}
+.legend-fine {
+  font-size: 10px;
+  color: #dc2626;
+  font-weight: 700;
+}
+.legend.enhanced hr {
+  margin: 6px 0;
+  border: 0;
+  border-top: 1px solid #f1f5f9;
+}
+.legend-note {
+  margin-top: 6px;
+  padding: 6px;
+  background: #eff6ff;
+  border-radius: 4px;
+  font-size: 9px;
+  color: #1d4ed8;
+  line-height: 1.5;
+}
+
+/* ===== USER MARKER ===== */
+.user-marker { background: transparent; }
+
+/* ===== RESPONSIVE ===== */
+/* ===== EXISTING BOOKING SECTION ===== */
+.existing-booking-section {
+  text-align: center;
+}
+.existing-booking-info {
+  text-align: left;
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin: 12px 0;
+}
+.eb-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 14px;
+}
+.eb-row:last-child {
+  border-bottom: none;
+}
+.eb-row span:first-child {
+  color: #64748b;
+}
+.eb-qr-placeholder {
+  background: #fffbeb;
+  border: 1px dashed #f59e0b;
+  border-radius: 8px;
+  padding: 16px;
+  margin: 12px 0;
+}
+.eb-manual {
+  font-size: 13px;
+  color: #64748b;
+  margin-top: 8px;
+}
+.eb-manual b {
+  color: #dc2626;
+}
+
+@media (max-width: 640px) {
+  .top-header { flex-direction: column; gap: 6px; padding: 8px 12px; }
+  .header-left h1 { font-size: 15px; }
+  .header-right { flex-wrap: wrap; justify-content: center; gap: 4px; }
+  .vehicle-select { font-size: 11px; padding: 4px 8px; }
+  .filter-panel { left: 8px; right: 8px; top: 100px; flex-direction: column; }
+  .filter-input { min-width: 100%; }
+  .modal { max-width: 95vw; margin: 10px; }
+  .lot-list-panel { left: 4px; right: 4px; width: auto; top: 100px; max-height: 40vh; }
+  .legend.enhanced { bottom: 8px; right: 8px; min-width: 200px; max-width: 240px; }
+  .traffic-panel { top: 100px; right: 8px; left: 8px; width: auto; max-height: 60vh; }
+  .warning-toast-container { right: 8px; left: 8px; max-width: none; top: 100px; }
+}

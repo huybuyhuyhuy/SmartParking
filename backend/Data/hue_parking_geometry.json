@@ -1,0 +1,160 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P001",
+        "name": "Bãi xe Đông Ba",
+        "capacity": 50,
+        "pricePerHour": 5000
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.5841,
+              16.4667
+            ],
+            [
+              107.5847,
+              16.4667
+            ],
+            [
+              107.5847,
+              16.4662
+            ],
+            [
+              107.5841,
+              16.4662
+            ],
+            [
+              107.5841,
+              16.4667
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P002",
+        "name": "Bãi xe Nguyễn Huệ",
+        "capacity": 36,
+        "pricePerHour": 7000,
+        "evSupported": true,
+        "vehicleType": "CAR",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": false,
+        "contactPhone": "",
+        "description": "",
+        "imageUrl": "",
+        "updatedAt": "2026-04-29T20:18:47.477Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.58,
+              16.46
+            ],
+            [
+              107.581,
+              16.46
+            ],
+            [
+              107.581,
+              16.459
+            ],
+            [
+              107.58,
+              16.459
+            ],
+            [
+              107.58,
+              16.46
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P003",
+        "name": "Bãi đỗ xe Công viên Kim Đồng",
+        "capacity": 80,
+        "pricePerHour": 5000,
+        "address": "Đường Hà Nội, TP. Huế"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.5885,
+              16.4645
+            ],
+            [
+              107.5895,
+              16.4645
+            ],
+            [
+              107.5895,
+              16.4635
+            ],
+            [
+              107.5885,
+              16.4635
+            ],
+            [
+              107.5885,
+              16.4645
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P004",
+        "name": "Bến xe Nguyễn Hoàng",
+        "capacity": 150,
+        "pricePerHour": 10000,
+        "address": "01 Lê Duẩn, TP. Huế"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.578,
+              16.4675
+            ],
+            [
+              107.5795,
+              16.4675
+            ],
+            [
+              107.5795,
+              16.466
+            ],
+            [
+              107.578,
+              16.466
+            ],
+            [
+              107.578,
+              16.4675
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

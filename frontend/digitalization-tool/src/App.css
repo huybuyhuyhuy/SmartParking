@@ -1,0 +1,164 @@
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* LOGIN SCREEN */
+.login-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #2563eb 100%);
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+.login-card {
+  background: white;
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.4);
+}
+.login-header { text-align: center; margin-bottom: 28px; }
+.login-header h1 { font-size: 20px; color: #1e3a5f; margin: 0; }
+.login-header p { font-size: 13px; color: #64748b; margin-top: 6px; }
+.login-form .form-group { margin-bottom: 16px; }
+.login-form label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 4px; color: #374151; }
+.login-form input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: border-color 0.2s;
+}
+.login-form input:focus { outline: none; border-color: #2563eb; }
+.login-btn { margin-top: 8px; padding: 12px; font-size: 15px; }
+.login-error {
+  background: #fee2e2;
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+  border: 1px solid #fca5a5;
+}
+.login-hint { text-align: center; font-size: 11px; color: #94a3b8; margin-top: 14px; }
+
+.digi-app {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  height: 100vh;
+  font-family: 'Segoe UI', Arial, sans-serif;
+}
+
+.digi-sidebar {
+  padding: 16px;
+  border-right: 1px solid #e5e7eb;
+  overflow-y: auto;
+  background: #fafbfc;
+}
+
+.digi-sidebar h2 { font-size: 16px; margin-bottom: 2px; }
+.digi-subtitle { font-size: 12px; color: #6b7280; margin: 0 0 12px; }
+
+.digi-form { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+.digi-form label { font-size: 11px; font-weight: 600; color: #374151; }
+.digi-form input, .digi-form select, .digi-form textarea {
+  width: 100%;
+  padding: 6px 8px;
+  border: 1px solid #d1d5db;
+  border-radius: 5px;
+  font-size: 12px;
+  margin-top: 2px;
+}
+.digi-form input:focus, .digi-form select:focus, .digi-form textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37,99,235,0.1);
+}
+.form-checks { display: flex; gap: 16px; }
+.check-label { display: flex; align-items: center; gap: 4px; font-size: 12px; cursor: pointer; }
+
+/* BUTTONS */
+.btn {
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  transition: all 0.15s;
+}
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-primary { background: #2563eb; color: white; }
+.btn-primary:hover { background: #1d4ed8; }
+.btn-danger { background: #ef4444; color: white; }
+.btn-danger:hover { background: #dc2626; }
+.btn-outline { background: white; color: #374151; border: 1px solid #d1d5db; }
+.btn-outline:hover { background: #f3f4f6; }
+.btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.digi-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
+
+.undo-redo {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.history-info { font-size: 11px; color: #6b7280; }
+
+.digi-status {
+  font-size: 12px;
+  color: #1e293b;
+  padding: 6px 10px;
+  background: #f8fafc;
+  border-radius: 5px;
+  margin-bottom: 8px;
+  min-height: 30px;
+  border-left: 3px solid #2563eb;
+}
+
+.digi-import-export { display: flex; gap: 6px; margin-bottom: 12px; }
+.import-label { cursor: pointer; text-align: center; }
+
+.lot-preview-image {
+  margin-bottom: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #e5e7eb;
+}
+.lot-preview-image img { width: 100%; max-height: 160px; object-fit: cover; display: block; }
+
+.digi-lot-list { margin-bottom: 12px; }
+.digi-lot-list > b { font-size: 12px; }
+.lot-list-scroll { margin-top: 6px; max-height: 200px; overflow-y: auto; border: 1px solid #e5e7eb; border-radius: 6px; }
+
+.lot-list-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid #f3f4f6;
+  background: white;
+  cursor: pointer;
+  font-size: 12px;
+  transition: background 0.1s;
+}
+.lot-list-item:hover { background: #f0f9ff; }
+.lot-list-item.selected { background: #dbeafe; border-left: 3px solid #2563eb; }
+.lot-meta { font-size: 10px; color: #6b7280; }
+
+.digi-preview { font-size: 12px; }
+.digi-preview summary { cursor: pointer; color: #2563eb; font-weight: 600; margin-bottom: 6px; }
+.digi-preview pre { font-size: 10px; max-height: 200px; overflow: auto; background: #1e293b; color: #e2e8f0; padding: 10px; border-radius: 6px; }
+
+.digi-map { height: 100%; }
+
+@media (max-width: 768px) {
+  .digi-app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }
+  .digi-sidebar { max-height: 50vh; }
+  .digi-map { height: 50vh; }
+}

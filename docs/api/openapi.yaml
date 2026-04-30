@@ -1,0 +1,53 @@
+openapi: 3.0.3
+info:
+  title: Smart Parking API
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+paths:
+  /api/v1/nearby:
+    get:
+      summary: Find nearby parking lots by geo radius and filters
+      parameters:
+        - in: query
+          name: lat
+          required: true
+          schema: { type: number }
+        - in: query
+          name: lng
+          required: true
+          schema: { type: number }
+        - in: query
+          name: radius
+          schema: { type: integer, default: 3000 }
+        - in: query
+          name: evOnly
+          schema: { type: boolean, default: false }
+        - in: query
+          name: maxPrice
+          schema: { type: number }
+      responses:
+        "200":
+          description: Nearby lots
+  /api/v1/parking-lots:
+    get:
+      summary: List parking lots
+      responses:
+        "200":
+          description: List of parking lots
+  /api/v1/slots/events:
+    post:
+      summary: IoT slot event ingestion endpoint
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                parkingLotId: { type: string }
+                availableSlots: { type: integer }
+                source: { type: string }
+      responses:
+        "200":
+          description: Event accepted
