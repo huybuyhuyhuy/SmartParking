@@ -97,6 +97,8 @@
 .btn-danger:hover { background: #dc2626; }
 .btn-outline { background: white; color: #374151; border: 1px solid #d1d5db; }
 .btn-outline:hover { background: #f3f4f6; }
+.btn-outline-dark { background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); }
+.btn-outline-dark:hover { background: rgba(255,255,255,0.2); }
 .btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 .digi-actions { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; margin-bottom: 8px; }
@@ -156,6 +158,19 @@
 .digi-preview pre { font-size: 10px; max-height: 200px; overflow: auto; background: #1e293b; color: #e2e8f0; padding: 10px; border-radius: 6px; }
 
 .digi-map { height: 100%; }
+
+.lang-switcher {
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 1px solid #2563eb;
+  background: white;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.lang-switcher:hover { background: #2563eb; color: white; }
 
 @media (max-width: 768px) {
   .digi-app { grid-template-columns: 1fr; grid-template-rows: auto 1fr; }

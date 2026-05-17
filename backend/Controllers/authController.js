@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import jwt from "jsonwebtoken";
-import { db } from "./db.js";
+import { db, isSqlUp } from "./db.js";
 
 const JWT_SECRET = process.env.JWT_SECRET || "smart-parking-hue-jwt-secret";
 
@@ -38,19 +38,6 @@ function verifyPassword(password, stored) {
 
 function signToken(payload) {
   return jwt.sign(payload, JWT_SECRET, { expiresIn: "7d" });
-}
-
-let mysqlAvailable = null;
-
-async function isMysqlUp() {
-  if (mysqlAvailable !== null) return mysqlAvailable;
-  try {
-    await db.query("SELECT 1");
-    mysqlAvailable = true;
-  } catch (_e) {
-    mysqlAvailable = false;
-  }
-  return mysqlAvailable;
 }
 
 export function authMiddleware(req, res, next) {
@@ -96,7 +83,7 @@ export async function register(req, res) {
   const passwordHash = hashPassword(password);
 
   // Try MySQL first
-  if (await isMysqlUp()) {
+  if (await isSqlUp()) {
     try {
       const [existing] = await db.query("SELECT id FROM users WHERE email=?", [email]);
       if (existing.length > 0) {
@@ -137,7 +124,7 @@ export async function login(req, res) {
   }
 
   // Try MySQL first
-  if (await isMysqlUp()) {
+  if (await isSqlUp()) {
     try {
       const [rows] = await db.query(
         "SELECT id, full_name, email, role, password_hash FROM users WHERE email=?",
@@ -172,7 +159,7 @@ export async function login(req, res) {
 
 export async function getProfile(req, res) {
   try {
-    if (await isMysqlUp()) {
+    if (await isSqlUp()) {
       const [rows] = await db.query(
         "SELECT id, full_name, email, phone, role, created_at FROM users WHERE id=?",
         [req.user.userId]

@@ -2,6 +2,9 @@ import { db } from "./db.js";
 import { cacheGet, cacheSetEx } from "./redisClient.js";
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
@@ -34,7 +37,7 @@ export async function getNearbyParking(req, res) {
     rows = result[0];
   } catch (_e) {
     // Fallback to local GeoJSON if MySQL isn't available (dev mode without Docker).
-    const geoPath = path.resolve(process.cwd(), "Data", "hue_parking_geometry.json");
+    const geoPath = path.resolve(__dirname, "..", "Data", "hue_parking_geometry.json");
     const raw = await fs.readFile(geoPath, "utf-8");
     const geo = JSON.parse(raw);
     rows = (geo.features || []).map((f) => {

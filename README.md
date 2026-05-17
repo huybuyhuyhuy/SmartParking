@@ -1,56 +1,68 @@
 # Hệ thống Smart Parking Huế
 
-Hệ thống quản lý bãi đỗ xe thông minh cho thành phố Huế, hỗ trợ tìm kiếm vị trí, đặt chỗ, và số hóa bãi xe.
-
-## Cấu trúc dự án (Đã sắp xếp)
-
-Dự án đã được sắp xếp lại để tách biệt Backend và Frontend rõ ràng:
+Đây là hệ thống quản lý bãi đỗ xe thông minh gồm 4 ứng dụng giao diện và 1 backend:
 
 ```text
-backend/                # Node.js MVC API
-  Controllers/          # Xử lý logic nghiệp vụ
-  Models/               # Định nghĩa dữ liệu (MySQL)
-  Data/                 # File cấu hình DB và hình học bãi xe
-  server.js             # Điểm chạy chính của Backend
-frontend/               # Các ứng dụng React
-  user-map/             # Bản đồ cho người dùng tìm bãi xe
-  digitalization-tool/  # Công cụ số hóa bãi xe (vẽ Polygon)
-  ioc-dashboard/        # Dashboard giám sát trung tâm
-docs/                   # Tài liệu API và kiến trúc
-versions-deprecated/    # Các phiên bản cũ hoặc thử nghiệm (Java Microservices)
-run-all.bat             # File chạy toàn bộ hệ thống
-stop-all.bat            # File dừng tất cả các process
+backend/                 # Node.js + Express API
+frontend/user-map/       # Bản đồ cho người dùng tìm và đặt chỗ
+frontend/booking/        # Trang xem chi tiết booking và QR
+frontend/digitalization-tool/
+                         # Công cụ số hóa bãi xe bằng GeoJSON
+frontend/ioc-dashboard/  # Dashboard điều hành
+docs/                    # Tài liệu dự án
 ```
 
-## Công nghệ sử dụng
+## Công nghệ chính
 
-- **Backend**: Node.js + Express
-- **Frontend**: React + Leaflet/Mapbox
-- **Database**: MySQL (Dữ liệu chính) + Redis (Cache/Realtime)
-- **Message Broker**: Kafka (Log sự kiện bãi xe)
+- Backend: Node.js, Express, WebSocket
+- Frontend: React, Vite, Leaflet, Recharts
+- Database chính: SQL Server
+- Cache/realtime phụ trợ: Redis
+- Event streaming tùy chọn: Kafka
 
-## Hướng dẫn sử dụng
+## Chạy nhanh
 
-### 1. Chuẩn bị
-- Cài đặt [Node.js](https://nodejs.org/) (phiên bản LTS).
-- Cài đặt MySQL và tạo database theo file `backend/Data/init_schema.sql`.
-- Cài đặt Redis và Kafka (nếu muốn sử dụng đầy đủ tính năng realtime).
+1. Cài Node.js LTS.
+2. Nếu chỉ muốn demo nhanh, có thể chạy ngay bằng chế độ fallback in-memory.
+3. Nếu muốn chạy đầy đủ, cấu hình SQL Server, Redis và Kafka theo `backend/.env.example`.
+4. Double-click `run-all.bat`.
 
-### 2. Cấu hình
-- Sao chép file `backend/.env` và cập nhật thông tin kết nối Database, Redis, Kafka của bạn.
+Sau khi chạy:
 
-### 3. Chạy dự án
-- **Cách nhanh nhất**: Click đúp vào file `run-all.bat`. Script sẽ tự động cài đặt dependencies và khởi chạy Backend cùng các Frontend.
-- **Chỉ chạy Backend**: Click đúp vào `run-backend-only.bat`.
+- Backend health: http://localhost:3002/health
+- User Map: http://localhost:5173/user-map/
+- Digitalization Tool: http://localhost:5174/digitalization-tool/
+- IOC Dashboard: http://localhost:5175/ioc-dashboard/
+- Booking: http://localhost:5176/booking/
 
-### 4. Kiểm tra
-- Backend Health: [http://localhost:3002/health](http://localhost:3002/health)
-- User Map: Xem URL trong terminal sau khi chạy (thường là http://localhost:5173).
+## Tài khoản demo
 
-## Master API Contract
+- Email: `admin@hue.vn`
+- Mật khẩu: `123456`
 
-- `GET /api/nearby?lat={}&lng={}&radius=1`: Tìm bãi xe gần đây.
-- `PUT /api/slots/{id}`: Cập nhật trạng thái chỗ trống (yêu cầu `x-sensor-api-key`).
+## Các luồng chính
 
----
-Dự án đã được tối ưu hóa và sắp xếp lại bởi AI Assistant.
+1. Người dùng mở bản đồ, lọc bãi xe, chọn bãi phù hợp và đặt chỗ.
+2. Người dùng đăng nhập/đăng ký để lưu lịch sử cá nhân.
+3. Hệ thống tạo booking, thanh toán, sinh QR vào cổng.
+4. Cổng quét QR, cập nhật trạng thái ra/vào và số chỗ trống.
+5. Dashboard theo dõi doanh thu, booking, tình trạng bãi và sự kiện realtime.
+6. Digitalization Tool dùng để thêm/sửa dữ liệu bãi xe trực tiếp trên bản đồ.
+
+## Điểm nhấn nâng cấp
+
+- Gợi ý bãi xe phù hợp nhất theo khoảng cách, giá, độ trống và thời gian di chuyển.
+- Dashboard có dự báo sức chứa 30/60 phút để nhận biết bãi có nguy cơ đầy.
+- Lịch sử booking cá nhân và QR thật có thể mở lại sau khi đặt chỗ.
+
+## Chế độ demo và chế độ đầy đủ
+
+- Nếu SQL Server chưa chạy, backend tự chuyển sang bộ nhớ tạm để vẫn demo được.
+- Nếu Redis chưa chạy, hệ thống tự dùng cache trong RAM.
+- Nếu Kafka không cần cho buổi demo, đặt `KAFKA_ENABLED=false` để tránh retry gây chậm.
+
+## Ghi chú trước khi triển khai thật
+
+- Không dùng secret mặc định trong production.
+- Đưa `.env` thật ra khỏi source control; chỉ giữ `.env.example`.
+- Bật SQL Server, Redis và Kafka nếu muốn dữ liệu bền vững và pipeline realtime đầy đủ.

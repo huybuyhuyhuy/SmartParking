@@ -1,6 +1,8 @@
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { getInternalSlotCount, internalUpdateSlot } from "./slotController.js";
+import { processCheckout } from "./bookingController.js";
+import { db } from "./db.js";
 
 const gateEvents = [];
 const MAX_GATE_EVENTS = 200;
@@ -50,14 +52,6 @@ export async function issueUserQr(req, res) {
     expiresIn
   );
 
-  // Decrement slot at booking time (as requested)
-  if (lotId && lotId !== "UNKNOWN") {
-    const current = await getInternalSlotCount(lotId) || 0;
-    if (current > 0) {
-      await internalUpdateSlot(lotId, current - 1, "BOOKING_RESERVATION");
-    }
-  }
-
   const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(); // 4 hours
   return res.json({ 
     bookingId, 
@@ -88,6 +82,39 @@ export async function gateScan(req, res) {
       return res.status(403).json({ granted: false, message: "Token already used (anti-replay)" });
     }
 
+    // Time-window validation for future-time bookings
+    if (role === "USER") {
+      const bookingIdMatch = payload.sub?.match(/^booking:(.+)$/);
+      if (bookingIdMatch) {
+        try {
+          const [rows] = await db.query(
+            "SELECT scheduled_start FROM bookings WHERE id = ?",
+            [bookingIdMatch[1]]
+          );
+          if (rows.length > 0 && rows[0].scheduled_start) {
+            const scheduled = new Date(rows[0].scheduled_start);
+            const now = new Date();
+            const diffMs = now - scheduled;
+            const diffMinutes = diffMs / (1000 * 60);
+            if (diffMinutes < -60) {
+              return res.status(403).json({
+                granted: false,
+                message: `Too early. Your booking starts at ${scheduled.toLocaleString()}. Please come back closer to your scheduled time.`
+              });
+            }
+            if (diffMinutes > 4 * 60) {
+              return res.status(403).json({
+                granted: false,
+                message: `Your booking window has expired (scheduled: ${scheduled.toLocaleString()}). Please make a new booking.`
+              });
+            }
+          }
+        } catch (_e) {
+          // DB lookup failed — allow entry (graceful degradation)
+        }
+      }
+    }
+
     const event = {
       gateId: payload.gateId || "HUE_GATE_1",
       actor: payload.sub,
@@ -104,6 +131,15 @@ export async function gateScan(req, res) {
       const current = await getInternalSlotCount(payload.lotId) || 0;
       if (event.direction === "OUT") {
         await internalUpdateSlot(payload.lotId, current + 1, "GATE_OUT");
+        // Also trigger checkout to finalize the booking
+        const bookingIdMatch = payload.sub?.match(/^booking:(.+)$/);
+        if (bookingIdMatch) {
+          try {
+            await processCheckout(bookingIdMatch[1]);
+          } catch (_e) {
+            console.warn("[checkout] Auto-checkout via gate failed:", _e.message);
+          }
+        }
       }
     }
 

@@ -1,8 +1,9 @@
 import fs from "node:fs/promises";
 import path from "node:path";
-import { db } from "./db.js";
+import { db, isSqlUp } from "./db.js";
 import { cacheGet, cacheSet } from "./redisClient.js";
 import { ensureKafkaProducer, producer } from "./kafkaClient.js";
+import { broadcastSlotUpdate } from "../wsServer.js";
 
 const GEO_PATH = path.resolve(process.cwd(), "Data", "hue_parking_geometry.json");
 const slotState = new Map();
@@ -74,11 +75,12 @@ export async function internalUpdateSlot(lotId, availableSlots, source = "GATE_S
   if (slotHistory.length > MAX_HISTORY) slotHistory.length = MAX_HISTORY;
 
   try {
-    await ensureKafkaProducer();
-    await producer.send({
-      topic: "smart-parking-slot-events",
-      messages: [{ key: lotId, value: JSON.stringify(event) }]
-    });
+    if (await ensureKafkaProducer()) {
+      await producer.send({
+        topic: "smart-parking-slot-events",
+        messages: [{ key: lotId, value: JSON.stringify(event) }]
+      });
+    }
   } catch (_e) {}
 
   try {
@@ -87,6 +89,8 @@ export async function internalUpdateSlot(lotId, availableSlots, source = "GATE_S
       [lotId, availableSlots, source]
     );
   } catch (_e) {}
+
+  broadcastSlotUpdate(lotId, availableSlots);
 }
 
 export async function updateSlotBySensor(req, res) {
@@ -137,7 +141,7 @@ export async function getSlotEvents(req, res) {
   const limit = Math.min(Number(req.query.limit || 50), MAX_HISTORY);
   try {
     const [rows] = await db.query(
-      "SELECT parking_lot_id, available_slots, source, created_at FROM slot_events ORDER BY created_at DESC LIMIT ?",
+      "SELECT parking_lot_id, available_slots, source, created_at FROM slot_events ORDER BY created_at DESC OFFSET 0 ROWS FETCH NEXT ? ROWS ONLY",
       [limit]
     );
     return res.json(
@@ -151,4 +155,20 @@ export async function getSlotEvents(req, res) {
   } catch (_e) {
     return res.json(slotHistory.slice(0, limit));
   }
+}
+
+export function seedMemorySlotEvents(events = []) {
+  for (const event of [...events].reverse()) {
+    slotHistory.unshift({
+      lotId: event.lotId,
+      availableSlots: event.slots ?? event.availableSlots,
+      source: event.source,
+      ts: event.ts
+    });
+  }
+  if (slotHistory.length > MAX_HISTORY) slotHistory.length = MAX_HISTORY;
+}
+
+export function getMemorySlotEvents(limit = MAX_HISTORY) {
+  return slotHistory.slice(0, Math.min(limit, MAX_HISTORY));
 }

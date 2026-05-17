@@ -1,9 +1,11 @@
 import fs from "node:fs/promises";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { cacheGet, cacheSet } from "./redisClient.js";
 import { db } from "./db.js";
 
-const GEO_PATH = path.resolve(process.cwd(), "Data", "hue_parking_geometry.json");
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const GEO_PATH = path.resolve(__dirname, "..", "Data", "hue_parking_geometry.json");
 
 async function readGeo() {
   const raw = await fs.readFile(GEO_PATH, "utf-8");
@@ -18,27 +20,27 @@ async function upsertParkingLotToDb(feature) {
   const lot = featureToLot(feature);
   try {
     await db.query(
-      `INSERT INTO parking_lots
-      (id, name, latitude, longitude, total_slots, price_per_hour, ev_supported, polygon_geojson,
-       vehicle_type, open_time, close_time, has_security, contact_phone, description, image_url)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      ON DUPLICATE KEY UPDATE
-        name = VALUES(name),
-        latitude = VALUES(latitude),
-        longitude = VALUES(longitude),
-        total_slots = VALUES(total_slots),
-        price_per_hour = VALUES(price_per_hour),
-        ev_supported = VALUES(ev_supported),
-        polygon_geojson = VALUES(polygon_geojson),
-        vehicle_type = VALUES(vehicle_type),
-        open_time = VALUES(open_time),
-        close_time = VALUES(close_time),
-        has_security = VALUES(has_security),
-        contact_phone = VALUES(contact_phone),
-        description = VALUES(description),
-        image_url = VALUES(image_url)`,
+      `MERGE parking_lots AS target
+      USING (SELECT ? AS id, ? AS name, ? AS latitude, ? AS longitude, ? AS total_slots, ? AS price_per_hour,
+                    ? AS price_per_hour_motorbike, ? AS ev_supported, ? AS polygon_geojson, ? AS vehicle_type,
+                    ? AS open_time, ? AS close_time, ? AS has_security, ? AS contact_phone, ? AS description, ? AS image_url) AS source
+      ON target.id = source.id
+      WHEN MATCHED THEN UPDATE SET
+        name = source.name, latitude = source.latitude, longitude = source.longitude,
+        total_slots = source.total_slots, price_per_hour = source.price_per_hour,
+        price_per_hour_motorbike = source.price_per_hour_motorbike, ev_supported = source.ev_supported,
+        polygon_geojson = source.polygon_geojson, vehicle_type = source.vehicle_type,
+        open_time = source.open_time, close_time = source.close_time,
+        has_security = source.has_security, contact_phone = source.contact_phone,
+        description = source.description, image_url = source.image_url
+      WHEN NOT MATCHED THEN INSERT
+        (id, name, latitude, longitude, total_slots, price_per_hour, price_per_hour_motorbike, ev_supported, polygon_geojson,
+         vehicle_type, open_time, close_time, has_security, contact_phone, description, image_url)
+      VALUES (source.id, source.name, source.latitude, source.longitude, source.total_slots, source.price_per_hour,
+              source.price_per_hour_motorbike, source.ev_supported, source.polygon_geojson, source.vehicle_type,
+              source.open_time, source.close_time, source.has_security, source.contact_phone, source.description, source.image_url);`,
       [
-        lot.id, lot.name, lot.lat, lot.lng, lot.capacity, lot.pricePerHour,
+        lot.id, lot.name, lot.lat, lot.lng, lot.capacity, lot.pricePerHour, lot.pricePerHourMotorbike,
         lot.evSupported ? 1 : 0, JSON.stringify(feature.geometry),
         lot.vehicleType, lot.openTime, lot.closeTime, lot.hasSecurity ? 1 : 0,
         lot.contactPhone, lot.description, lot.imageUrl
@@ -67,6 +69,7 @@ function featureToLot(feature) {
     name: props.name,
     capacity: Number(props.capacity ?? 100),
     pricePerHour: Number(props.pricePerHour ?? 5000),
+    pricePerHourMotorbike: Number(props.pricePerHourMotorbike ?? props.pricePerHour ?? 2000),
     evSupported: Boolean(props.evSupported),
     lat: Number(lat),
     lng: Number(lng),
@@ -110,6 +113,7 @@ function normalizeFeature(feature) {
       name: String(props.name).trim(),
       capacity: Number(props.capacity ?? 100),
       pricePerHour: Number(props.pricePerHour ?? 5000),
+      pricePerHourMotorbike: Number(props.pricePerHourMotorbike ?? props.pricePerHour ?? 2000),
       evSupported: Boolean(props.evSupported),
       vehicleType: props.vehicleType || "CAR",
       openTime: props.openTime || "06:00",

@@ -1,17 +1,13 @@
 import crypto from "crypto";
 import https from "https";
-import { db } from "./db.js";
-import { getInternalSlotCount, internalUpdateSlot } from "./slotController.js";
+import { db, isSqlUp } from "./db.js";
 import { getMemoryPaymentState } from "./paymentController.js";
+import { getMemoryBookings } from "./bookingController.js";
 import jwt from "jsonwebtoken";
 import QRCode from "qrcode";
 
 // In-memory booking state for fallback
 const memoryBookingState = new Map();
-
-async function isMysqlUp() {
-  try { await db.query("SELECT 1"); return true; } catch (_e) { return false; }
-}
 
 const MOMO_CONFIG = {
   partnerCode: process.env.MOMO_PARTNER_CODE || "MOMO",
@@ -88,7 +84,7 @@ export async function createMomoPayment(req, res) {
   try {
     const momoRes = await sendMomoRequest(payload);
     if (momoRes.resultCode === 0) {
-      if (await isMysqlUp()) {
+      if (await isSqlUp()) {
         await db.query(
           "UPDATE bookings SET payment_provider='MOMO', payment_status='PENDING' WHERE id=?",
           [bookingId]
@@ -123,10 +119,14 @@ export async function momoIpnHandler(req, res) {
     if (bookingId) {
       let lotId = "UNKNOWN";
       let plateNumber = "UNKNOWN";
-      if (await isMysqlUp()) {
+      if (await isSqlUp()) {
         const [rows] = await db.query("SELECT parking_lot_id, plate_number FROM bookings WHERE id=?", [bookingId]).catch(() => [[], []]);
         lotId = rows.length > 0 ? rows[0].parking_lot_id : "UNKNOWN";
         plateNumber = rows.length > 0 ? (rows[0].plate_number || "UNKNOWN") : "UNKNOWN";
+      } else {
+        const found = getMemoryBookings().find((b) => String(b.id) === String(bookingId));
+        lotId = found?.parking_lot_id || "UNKNOWN";
+        plateNumber = found?.plate_number || "UNKNOWN";
       }
 
       const qrToken = jwt.sign(
@@ -135,7 +135,7 @@ export async function momoIpnHandler(req, res) {
         { expiresIn: "4h" }
       );
 
-      if (await isMysqlUp()) {
+      if (await isSqlUp()) {
         await db.query(
           "UPDATE bookings SET payment_status='PAID', payment_provider='MOMO', qr_code_token=? WHERE id=?",
           [qrToken, bookingId]
@@ -143,12 +143,11 @@ export async function momoIpnHandler(req, res) {
       }
       // In-memory fallback
       memoryBookingState.set(String(bookingId), { paymentStatus: "PAID", provider: "MOMO", qrToken });
-
-      if (lotId && lotId !== "UNKNOWN") {
-        const current = await getInternalSlotCount(lotId) || 0;
-        if (current > 0) {
-          await internalUpdateSlot(lotId, current - 1, "BOOKING_RESERVATION");
-        }
+      const memoryBooking = getMemoryBookings().find((b) => String(b.id) === String(bookingId));
+      if (memoryBooking) {
+        memoryBooking.payment_status = "PAID";
+        memoryBooking.payment_provider = "MOMO";
+        memoryBooking.qr_code_token = qrToken;
       }
 
       return res.json({ success: true, bookingId, qrToken });
@@ -165,7 +164,7 @@ export async function momoIpnHandler(req, res) {
 export async function checkPaymentStatus(req, res) {
   const { bookingId } = req.params;
   // Try MySQL first
-  if (await isMysqlUp()) {
+  if (await isSqlUp()) {
     try {
       const [rows] = await db.query(
         "SELECT id, payment_status, qr_code_token, parking_lot_id FROM bookings WHERE id=?",

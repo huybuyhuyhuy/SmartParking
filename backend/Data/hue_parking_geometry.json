@@ -7,7 +7,8 @@
         "id": "HUE-P001",
         "name": "Bãi xe Đông Ba",
         "capacity": 50,
-        "pricePerHour": 5000
+        "pricePerHour": 5000,
+        "pricePerHourMotorbike": 2000
       },
       "geometry": {
         "type": "Polygon",
@@ -44,6 +45,7 @@
         "name": "Bãi xe Nguyễn Huệ",
         "capacity": 36,
         "pricePerHour": 7000,
+        "pricePerHourMotorbike": 3000,
         "evSupported": true,
         "vehicleType": "CAR",
         "openTime": "06:00",
@@ -89,6 +91,7 @@
         "name": "Bãi đỗ xe Công viên Kim Đồng",
         "capacity": 80,
         "pricePerHour": 5000,
+        "pricePerHourMotorbike": 2000,
         "address": "Đường Hà Nội, TP. Huế"
       },
       "geometry": {
@@ -126,7 +129,16 @@
         "name": "Bến xe Nguyễn Hoàng",
         "capacity": 150,
         "pricePerHour": 10000,
-        "address": "01 Lê Duẩn, TP. Huế"
+        "pricePerHourMotorbike": 3000,
+        "evSupported": false,
+        "vehicleType": "CAR",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": false,
+        "contactPhone": "",
+        "description": "",
+        "imageUrl": "",
+        "updatedAt": "2026-05-06T07:36:34.970Z"
       },
       "geometry": {
         "type": "Polygon",

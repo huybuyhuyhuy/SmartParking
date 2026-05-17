@@ -1,13 +1,26 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import "leaflet-draw";
+import LangSwitcher from "./components/LangSwitcher.jsx";
 import "./App.css";
 
+const formatCurrency = (n, locale) =>
+  new Intl.NumberFormat(locale, { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(n || 0);
+
 export default function App() {
+  const { t, i18n } = useTranslation();
   const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3002";
-  const ADMIN_KEY = import.meta.env.VITE_ADMIN_KEY || "dev-admin-key";
+
+  // Auth state
+  const [token, setToken] = useState(null);
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
+  const [loginError, setLoginError] = useState(null);
 
   const mapRef = useRef(null);
   const map = useRef(null);
@@ -19,13 +32,14 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
 
-  // Undo/Redo
   const [history, setHistory] = useState([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
 
-  const [form, setForm] = useState({
+  const defaultName = () => t("defaultLotName");
+
+  const initForm = (overrides = {}) => ({
     id: `HUE-P${String(Math.floor(Math.random() * 900) + 100)}`,
-    name: "Bãi xe mới",
+    name: defaultName(),
     capacity: 100,
     pricePerHour: 5000,
     evSupported: false,
@@ -35,8 +49,73 @@ export default function App() {
     hasSecurity: false,
     contactPhone: "",
     description: "",
-    imageUrl: ""
+    imageUrl: "",
+    ...overrides
   });
+
+  const [form, setForm] = useState(initForm());
+
+  const authFetch = (url, opts = {}) => {
+    const headers = { ...(opts.headers || {}) };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return fetch(url, { ...opts, headers });
+  };
+
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setLoginError(null);
+    try {
+      const res = await fetch(`${API_BASE}/api/auth/login`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: loginEmail, password: loginPassword })
+      });
+      const data = await res.json();
+      if (!res.ok) { setLoginError(data.message || "Login failed"); return; }
+      localStorage.setItem("sp_token", data.token);
+      localStorage.setItem("sp_user", JSON.stringify(data.user));
+      setToken(data.token);
+      setUser(data.user);
+    } catch (e) {
+      setLoginError(e.message || "Network error");
+    }
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem("sp_token");
+    localStorage.removeItem("sp_user");
+    setToken(null);
+    setUser(null);
+    setLots([]);
+  };
+
+  useEffect(() => {
+    document.title = t("appTitle");
+  }, [t]);
+
+  // Auth check on mount
+  useEffect(() => {
+    const savedToken = localStorage.getItem("sp_token");
+    const savedUser = localStorage.getItem("sp_user");
+    if (!savedToken || !savedUser) { setAuthLoading(false); return; }
+    fetch(`${API_BASE}/api/auth/profile`, {
+      headers: { "Authorization": `Bearer ${savedToken}` }
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("invalid_token");
+        return res.json();
+      })
+      .then((u) => {
+        setToken(savedToken);
+        setUser(u);
+        setAuthLoading(false);
+      })
+      .catch(() => {
+        localStorage.removeItem("sp_token");
+        localStorage.removeItem("sp_user");
+        setAuthLoading(false);
+      });
+  }, []);
 
   const featureToSave = useMemo(() => {
     if (!lastGeoJson) return null;
@@ -103,7 +182,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (map.current) return;
+    if (map.current || !mapRef.current) return;
     map.current = L.map(mapRef.current).setView([16.4637, 107.5909], 14);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
@@ -129,12 +208,7 @@ export default function App() {
       pushHistory(geoJson);
       if (!isEditing) {
         setSelectedId(null);
-        setForm({
-          id: `HUE-P${String(Math.floor(Math.random() * 900) + 100)}`,
-          name: "Bãi xe mới", capacity: 100, pricePerHour: 5000, evSupported: false,
-          vehicleType: "CAR", openTime: "06:00", closeTime: "22:00", hasSecurity: false,
-          contactPhone: "", description: "", imageUrl: ""
-        });
+        setForm(initForm());
       }
     });
     map.current.on(L.Draw.Event.EDITED, () => {
@@ -148,7 +222,7 @@ export default function App() {
 
     existingLayer.current = L.layerGroup().addTo(map.current);
     loadLots().catch(() => {});
-  }, []);
+  }, [token]);
 
   useEffect(() => {
     if (!map.current || !existingLayer.current) return;
@@ -167,10 +241,10 @@ export default function App() {
         }
       );
       layer.on("click", () => selectLot(lot));
-      layer.bindPopup(`<b>${lot.name}</b><br/>ID: ${lot.id}<br/>Sức chứa: ${lot.capacity}`);
+      layer.bindPopup(`<b>${lot.name}</b><br/>ID: ${lot.id}<br/>${t("labelCapacity")}: ${lot.capacity}`);
       layer.addTo(existingLayer.current);
     }
-  }, [lots, selectedId]);
+  }, [lots, selectedId, t]);
 
   const clearDraft = () => {
     setSelectedId(null);
@@ -178,12 +252,7 @@ export default function App() {
     setLastGeoJson(null);
     setHistory([]);
     setHistoryIdx(-1);
-    setForm({
-      id: `HUE-P${String(Math.floor(Math.random() * 900) + 100)}`,
-      name: "Bãi xe mới", capacity: 100, pricePerHour: 5000, evSupported: false,
-      vehicleType: "CAR", openTime: "06:00", closeTime: "22:00", hasSecurity: false,
-      contactPhone: "", description: "", imageUrl: ""
-    });
+    setForm(initForm());
     if (drawn.current) drawn.current.clearLayers();
   };
 
@@ -226,50 +295,48 @@ export default function App() {
 
   const validateForm = () => {
     const errors = [];
-    if (!form.id.trim()) errors.push("ID không được để trống");
-    if (!form.name.trim()) errors.push("Tên bãi xe không được để trống");
-    if (Number(form.capacity) < 1) errors.push("Sức chứa phải > 0");
-    if (Number(form.pricePerHour) < 0) errors.push("Giá không được âm");
+    if (!form.id.trim()) errors.push(t("errIdRequired"));
+    if (!form.name.trim()) errors.push(t("errNameRequired"));
+    if (Number(form.capacity) < 1) errors.push(t("errCapacityPositive"));
+    if (Number(form.pricePerHour) < 0) errors.push(t("errPriceNegative"));
     const dup = lots.find((l) => l.id === form.id && l.id !== selectedId);
-    if (dup) errors.push(`ID "${form.id}" đã tồn tại. Vui lòng chọn ID khác.`);
+    if (dup) errors.push(t("errIdDuplicate", { id: form.id }));
     return errors;
   };
 
   const save = async () => {
-    if (!featureToSave) { setStatus("Chưa có polygon. Hãy vẽ 1 Polygon trước."); return; }
+    if (!featureToSave) { setStatus(t("statusNoPolygon")); return; }
     const errors = validateForm();
     if (errors.length > 0) { setStatus("Lỗi: " + errors.join("; ")); return; }
 
-    setStatus("Đang lưu...");
-    const res = await fetch(`${API_BASE}/api/admin/parking-lots`, {
+    setStatus(t("statusSaving"));
+    const res = await authFetch(`${API_BASE}/api/admin/parking-lots`, {
       method: "POST",
-      headers: { "content-type": "application/json", "x-admin-key": ADMIN_KEY },
+      headers: { "content-type": "application/json" },
       body: JSON.stringify(featureToSave)
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { setStatus(`Lưu thất bại: ${data?.message || res.statusText}`); return; }
-    setStatus(isEditing ? `Đã cập nhật: ${data.id}` : `Đã lưu: ${data.id}`);
+    if (!res.ok) { setStatus(`${t("statusSaveFailed")}: ${data?.message || res.statusText}`); return; }
+    setStatus(isEditing ? t("statusUpdated", { id: data.id }) : t("statusSaved", { id: data.id }));
     setIsEditing(true);
     setSelectedId(form.id);
     await loadLots();
   };
 
   const removeLot = async () => {
-    if (!selectedId) { setStatus("Chọn 1 bãi xe trong danh sách trước khi xóa."); return; }
-    if (!window.confirm(`Bạn có chắc muốn xóa bãi xe "${selectedId}"?`)) return;
-    setStatus("Đang xóa...");
-    const res = await fetch(`${API_BASE}/api/admin/parking-lots/${selectedId}`, {
-      method: "DELETE",
-      headers: { "x-admin-key": ADMIN_KEY }
+    if (!selectedId) { setStatus(t("statusSelectToDelete")); return; }
+    if (!window.confirm(t("confirmDelete", { id: selectedId }))) return;
+    setStatus(t("statusDeleting"));
+    const res = await authFetch(`${API_BASE}/api/admin/parking-lots/${selectedId}`, {
+      method: "DELETE"
     });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok) { setStatus(`Xóa thất bại: ${data?.message || res.statusText}`); return; }
+    if (!res.ok) { setStatus(`${t("statusDeleteFailed")}: ${data?.message || res.statusText}`); return; }
     clearDraft();
     await loadLots();
-    setStatus(`Đã xóa: ${selectedId}`);
+    setStatus(t("statusDeleted", { id: selectedId }));
   };
 
-  // Bulk export
   const exportAll = async () => {
     const res = await fetch(`${API_BASE}/api/parking-lots`);
     const data = await res.json();
@@ -291,10 +358,9 @@ export default function App() {
     const a = document.createElement("a");
     a.href = url; a.download = `hue-parking-lots-${new Date().toISOString().slice(0, 10)}.geojson`; a.click();
     URL.revokeObjectURL(url);
-    setStatus("Đã xuất file GeoJSON!");
+    setStatus(t("statusExported"));
   };
 
-  // Bulk import
   const importFile = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -306,90 +372,122 @@ export default function App() {
         let count = 0;
         for (const f of features) {
           if (f.geometry?.type !== "Polygon") continue;
-          const res = await fetch(`${API_BASE}/api/admin/parking-lots`, {
+          const res = await authFetch(`${API_BASE}/api/admin/parking-lots`, {
             method: "POST",
-            headers: { "content-type": "application/json", "x-admin-key": ADMIN_KEY },
+            headers: { "content-type": "application/json" },
             body: JSON.stringify(f)
           });
           if (res.ok) count++;
         }
-        setStatus(`Đã import ${count}/${features.length} bãi xe.`);
+        setStatus(t("statusImported", { count, total: features.length }));
         await loadLots();
       } catch (_e) {
-        setStatus("Lỗi đọc file. Hãy chắc chắn file là GeoJSON hợp lệ.");
+        setStatus(t("errImportFailed"));
       }
     };
     reader.readAsText(file);
   };
 
+  if (authLoading) return <div className="login-page"><div className="login-card"><p style={{ textAlign: "center" }}>Loading...</p></div></div>;
+
+  if (!token) {
+    return (
+      <div className="login-page">
+        <div className="login-card">
+          <div className="login-header">
+            <h1>{t("appTitle")}</h1>
+            <p>Admin login</p>
+          </div>
+          <form className="login-form" onSubmit={handleLogin}>
+            {loginError && <div className="login-error">{loginError}</div>}
+            <div className="form-group">
+              <label>Email</label>
+              <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="admin@hue.vn" required autoFocus />
+            </div>
+            <div className="form-group">
+              <label>Password</label>
+              <input type="password" value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} placeholder="••••••" required />
+            </div>
+            <button type="submit" className="btn btn-primary login-btn">Login</button>
+          </form>
+          <p className="login-hint">admin@hue.vn / 123456</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="digi-app">
       <div className="digi-sidebar">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-          <h2>Huế Parking - Công cụ Số hóa</h2>
+          <h2>{t("header")}</h2>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <LangSwitcher />
+            <button className="btn btn-sm btn-outline-dark" onClick={handleLogout} style={{ fontSize: 11 }}>Logout</button>
+          </div>
         </div>
-        <p className="digi-subtitle">Vẽ Polygon, nhập thông tin bãi xe, rồi bấm Save.</p>
+        <p className="digi-subtitle">{t("subtitle")}</p>
 
         <div className="digi-form">
           <div className="form-row">
-            <label>ID <input value={form.id} onChange={(e) => setForm((s) => ({ ...s, id: e.target.value }))} /></label>
-            <label>Tên bãi xe <input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} /></label>
+            <label>{t("labelId")} <input value={form.id} onChange={(e) => setForm((s) => ({ ...s, id: e.target.value }))} /></label>
+            <label>{t("labelName")} <input value={form.name} onChange={(e) => setForm((s) => ({ ...s, name: e.target.value }))} /></label>
           </div>
           <div className="form-row">
-            <label>Sức chứa <input type="number" value={form.capacity} onChange={(e) => setForm((s) => ({ ...s, capacity: Number(e.target.value) }))} /></label>
-            <label>Giá/giờ (VNĐ) <input type="number" value={form.pricePerHour} onChange={(e) => setForm((s) => ({ ...s, pricePerHour: Number(e.target.value) }))} /></label>
+            <label>{t("labelCapacity")} <input type="number" value={form.capacity} onChange={(e) => setForm((s) => ({ ...s, capacity: Number(e.target.value) }))} /></label>
+            <label>{t("labelPricePerHour")} <input type="number" value={form.pricePerHour} onChange={(e) => setForm((s) => ({ ...s, pricePerHour: Number(e.target.value) }))} /></label>
           </div>
           <div className="form-row">
-            <label>Loại xe
+            <label>{t("labelVehicleType")}
               <select value={form.vehicleType} onChange={(e) => setForm((s) => ({ ...s, vehicleType: e.target.value }))}>
-                <option value="CAR">Ô tô</option>
-                <option value="MOTORBIKE">Xe máy</option>
-                <option value="BOTH">Cả hai</option>
+                <option value="CAR">{t("vehicleTypeCar")}</option>
+                <option value="MOTORBIKE">{t("vehicleTypeMotorbike")}</option>
+                <option value="BOTH">{t("vehicleTypeBoth")}</option>
               </select>
             </label>
-            <label>Giờ mở cửa <input type="time" value={form.openTime} onChange={(e) => setForm((s) => ({ ...s, openTime: e.target.value }))} /></label>
+            <label>{t("labelOpenTime")} <input type="time" value={form.openTime} onChange={(e) => setForm((s) => ({ ...s, openTime: e.target.value }))} /></label>
           </div>
           <div className="form-row">
-            <label>Giờ đóng cửa <input type="time" value={form.closeTime} onChange={(e) => setForm((s) => ({ ...s, closeTime: e.target.value }))} /></label>
-            <label>SĐT liên hệ <input type="tel" value={form.contactPhone} onChange={(e) => setForm((s) => ({ ...s, contactPhone: e.target.value }))} placeholder="VD: 0905123456" /></label>
+            <label>{t("labelCloseTime")} <input type="time" value={form.closeTime} onChange={(e) => setForm((s) => ({ ...s, closeTime: e.target.value }))} /></label>
+            <label>{t("labelContactPhone")} <input type="tel" value={form.contactPhone} onChange={(e) => setForm((s) => ({ ...s, contactPhone: e.target.value }))} placeholder={t("placeholderPhone")} /></label>
           </div>
           <div className="form-row">
-            <label>URL ảnh bãi xe <input value={form.imageUrl} onChange={(e) => setForm((s) => ({ ...s, imageUrl: e.target.value }))} placeholder="https://..." /></label>
+            <label>{t("labelImageUrl")} <input value={form.imageUrl} onChange={(e) => setForm((s) => ({ ...s, imageUrl: e.target.value }))} placeholder={t("placeholderUrl")} /></label>
           </div>
-          <label>Mô tả <textarea value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} rows={2} placeholder="Mô tả về bãi xe..." /></label>
+          <label>{t("labelDescription")} <textarea value={form.description} onChange={(e) => setForm((s) => ({ ...s, description: e.target.value }))} rows={2} placeholder={t("placeholderDescription")} /></label>
 
           <div className="form-checks">
             <label className="check-label">
               <input type="checkbox" checked={form.evSupported} onChange={(e) => setForm((s) => ({ ...s, evSupported: e.target.checked }))} />
-              Hỗ trợ EV
+              {t("labelEvSupported")}
             </label>
             <label className="check-label">
               <input type="checkbox" checked={form.hasSecurity} onChange={(e) => setForm((s) => ({ ...s, hasSecurity: e.target.checked }))} />
-              Có bảo vệ
+              {t("labelHasSecurity")}
             </label>
           </div>
         </div>
 
         <div className="digi-actions">
           <button className="btn btn-primary" onClick={save}>
-            {isEditing ? "Cập nhật" : "Save to GeoJSON"}
+            {isEditing ? t("btnUpdate") : t("btnSave")}
           </button>
-          <button className="btn btn-danger" onClick={removeLot}>Xóa bãi đã chọn</button>
-          <button className="btn btn-outline" onClick={clearDraft}>Tạo mới</button>
+          <button className="btn btn-danger" onClick={removeLot}>{t("btnDelete")}</button>
+          <button className="btn btn-outline" onClick={clearDraft}>{t("btnNew")}</button>
         </div>
 
         <div className="undo-redo">
-          <button className="btn btn-sm btn-outline" onClick={undo} disabled={historyIdx <= 0}>Undo</button>
-          <button className="btn btn-sm btn-outline" onClick={redo} disabled={historyIdx >= history.length - 1}>Redo</button>
+          <button className="btn btn-sm btn-outline" onClick={undo} disabled={historyIdx <= 0}>{t("btnUndo")}</button>
+          <button className="btn btn-sm btn-outline" onClick={redo} disabled={historyIdx >= history.length - 1}>{t("btnRedo")}</button>
           <span className="history-info">{history.length > 0 ? `${historyIdx + 1}/${history.length}` : "0"}</span>
         </div>
 
         <div className="digi-status">{status}</div>
 
         <div className="digi-import-export">
-          <button className="btn btn-sm btn-outline" onClick={exportAll}>Xuất tất cả (GeoJSON)</button>
+          <button className="btn btn-sm btn-outline" onClick={exportAll}>{t("btnExportAll")}</button>
           <label className="btn btn-sm btn-outline import-label">
-            Nhập GeoJSON
+            {t("btnImport")}
             <input type="file" accept=".json,.geojson" onChange={importFile} hidden />
           </label>
         </div>
@@ -401,20 +499,20 @@ export default function App() {
         )}
 
         <div className="digi-lot-list">
-          <b>Danh sách bãi xe ({lots.length})</b>
+          <b>{t("lotListHeader", { count: lots.length })}</b>
           <div className="lot-list-scroll">
             {lots.map((lot) => (
               <button key={lot.id} onClick={() => selectLot(lot)}
                 className={`lot-list-item ${selectedId === lot.id ? "selected" : ""}`}>
                 <div><b>{lot.name}</b></div>
-                <div className="lot-meta">{lot.id} | Sức chứa: {lot.capacity} | {lot.pricePerHour.toLocaleString()}đ/h</div>
+                <div className="lot-meta">{lot.id} | {t("labelCapacity")}: {lot.capacity} | {formatCurrency(lot.pricePerHour, i18n.language)}/h</div>
               </button>
             ))}
           </div>
         </div>
 
         <details className="digi-preview">
-          <summary>Xem trước GeoJSON</summary>
+          <summary>{t("previewTitle")}</summary>
           <pre>{JSON.stringify(featureToSave, null, 2)}</pre>
         </details>
       </div>

@@ -41,6 +41,45 @@
   user-select: none;
 }
 .lot-list-header h3 { font-size: 13px; margin: 0; font-weight: 700; }
+.lot-list-header-right { display: flex; align-items: center; gap: 6px; }
+.sort-select {
+  padding: 3px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255,255,255,0.3);
+  background: rgba(255,255,255,0.15);
+  color: white;
+  font-size: 10px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.sort-select option { background: #1e3a5f; color: white; }
+.sort-select:focus { outline: none; border-color: rgba(255,255,255,0.6); }
+.travel-mode-box {
+  display: flex;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.25);
+}
+.travel-mode-btn {
+  width: 28px;
+  height: 24px;
+  border: none;
+  background: rgba(255,255,255,0.1);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  transition: background 0.15s;
+}
+.travel-mode-btn + .travel-mode-btn {
+  border-left: 1px solid rgba(255,255,255,0.2);
+}
+.travel-mode-btn.active {
+  background: rgba(255,255,255,0.35);
+}
+.travel-mode-btn:hover:not(.active) { background: rgba(255,255,255,0.2); }
+.travel-mode-icon { font-size: 13px; line-height: 1; }
 .lot-list-toggle { font-size: 18px; font-weight: 800; line-height: 1; }
 .lot-list-body {
   overflow-y: auto;
@@ -63,6 +102,16 @@
 .lot-card:hover { background: #f8fafc; border-color: #2563eb; }
 .lot-card-info { flex: 1; min-width: 0; }
 .lot-card-name { font-size: 13px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lot-card-recommended {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 10px;
+  font-weight: 700;
+}
 .lot-card-meta { display: flex; gap: 10px; margin-top: 3px; }
 .lot-card-slots { font-size: 11px; color: #16a34a; font-weight: 600; }
 .lot-card-price { font-size: 11px; color: #64748b; }
@@ -75,6 +124,40 @@
   border-radius: 3px;
   font-weight: 600;
   margin-top: 2px;
+}
+.lot-card-extra {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 3px;
+}
+.lot-card-distance { font-size: 10px; color: #6366f1; font-weight: 600; }
+.lot-card-walk { font-size: 10px; color: #8b5cf6; font-weight: 600; }
+.lot-score-bar {
+  position: relative;
+  height: 14px;
+  background: #f1f5f9;
+  border-radius: 7px;
+  margin-top: 4px;
+  overflow: hidden;
+}
+.lot-score-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #22c55e, #2563eb);
+  border-radius: 7px;
+  transition: width 0.3s;
+}
+.lot-score-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 9px;
+  font-weight: 700;
+  color: #1e293b;
+  text-shadow: 0 0 3px rgba(255,255,255,0.8);
 }
 .lot-card .btn-sm { flex-shrink: 0; }
 
@@ -318,6 +401,16 @@
   flex-shrink: 0;
 }
 .parking-distance { display: block; font-size: 11px; color: #6b7280; }
+.parking-score-badge {
+  margin-left: auto;
+  font-size: 10px;
+  background: linear-gradient(135deg, #22c55e, #2563eb);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 10px;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .parking-suggestion-info { margin-top: 6px; font-size: 11px; color: #374151; display: flex; flex-direction: column; gap: 2px; }
 
 .traffic-general-rules { margin-top: 16px; border-top: 1px solid #e5e7eb; padding-top: 12px; }
@@ -390,11 +483,28 @@
 .btn-primary:hover { background: #1d4ed8; }
 .btn-outline { background: rgba(255,255,255,0.15); color: white; border: 1px solid rgba(255,255,255,0.3); }
 .btn-outline:hover { background: rgba(255,255,255,0.25); }
+.btn-danger { background: #dc2626; color: white; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-outline-dark { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+.btn-outline-dark:hover { background: #f3f4f6; }
 .btn-block { width: 100%; padding: 10px; font-size: 14px; }
 .btn-momo { background: #d82d8b; color: white; text-decoration: none; text-align: center; display: block; }
 .btn-momo:hover { background: #c0247a; }
 .btn-link { background: none; color: #2563eb; text-decoration: underline; }
 .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.auth-user-chip {
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.22);
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+}
 
 /* ===== FILTER PANEL ===== */
 .filter-panel {
@@ -513,6 +623,42 @@
 }
 .total-amount { font-size: 18px; color: #2563eb; }
 
+/* ===== BOOKING MODE TOGGLE ===== */
+.booking-mode-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #d1d5db;
+}
+.toggle-option {
+  flex: 1;
+  padding: 8px 0;
+  border: none;
+  background: #f9fafb;
+  color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.toggle-option.active {
+  background: #2563eb;
+  color: white;
+}
+.toggle-option:not(.active):hover {
+  background: #e5e7eb;
+}
+.toggle-option + .toggle-option {
+  border-left: 1px solid #d1d5db;
+}
+
+.form-row-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
 /* ===== PAYMENT ===== */
 .payment-section { text-align: center; }
 .booking-success { margin-bottom: 16px; }
@@ -552,6 +698,7 @@
 .status-badge.PAID { background: #dcfce7; color: #166534; }
 .status-badge.PENDING { background: #fef3c7; color: #92400e; }
 .status-badge.FAILED { background: #fee2e2; color: #991b1b; }
+.status-badge.COMPLETED { background: #dbeafe; color: #1e40af; }
 .empty-text { text-align: center; color: #9ca3af; padding: 20px; }
 
 /* ===== AUTH ERROR ===== */
@@ -563,6 +710,21 @@
   font-size: 13px;
   margin-bottom: 12px;
   border: 1px solid #fca5a5;
+}
+.auth-toggle {
+  width: 100%;
+  margin-top: 12px;
+  border: none;
+  background: transparent;
+  color: #2563eb;
+  font-size: 13px;
+  cursor: pointer;
+}
+.auth-toggle:hover { text-decoration: underline; }
+.history-actions {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
 }
 
 /* ===== ENHANCED LEGEND ===== */
@@ -666,6 +828,73 @@
 /* ===== USER MARKER ===== */
 .user-marker { background: transparent; }
 
+/* ===== POLYGON LABEL ===== */
+.polygon-label {
+  background: rgba(30, 58, 95, 0.85);
+  border: none;
+  color: white;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+}
+.polygon-label::before {
+  display: none;
+}
+
+/* ===== BOOKING FAB ===== */
+.booking-fab {
+  position: absolute;
+  bottom: 24px;
+  left: 24px;
+  z-index: 1500;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: white;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s;
+  animation: fabPulse 2s infinite;
+}
+.booking-fab:hover {
+  transform: scale(1.1);
+  box-shadow: 0 8px 28px rgba(37, 99, 235, 0.6);
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+}
+.booking-fab:active {
+  transform: scale(0.95);
+}
+.booking-fab-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+.booking-fab-label {
+  position: absolute;
+  left: 64px;
+  background: #1e3a5f;
+  color: white;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+  pointer-events: none;
+}
+
+@keyframes fabPulse {
+  0%, 100% { box-shadow: 0 6px 20px rgba(37, 99, 235, 0.5); }
+  50% { box-shadow: 0 6px 28px rgba(37, 99, 235, 0.7); }
+}
+
 /* ===== RESPONSIVE ===== */
 /* ===== EXISTING BOOKING SECTION ===== */
 .existing-booking-section {
@@ -708,6 +937,20 @@
 .eb-manual b {
   color: #dc2626;
 }
+
+.lang-switcher {
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 1px solid #2563eb;
+  background: white;
+  color: #2563eb;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.lang-switcher:hover { background: #2563eb; color: white; }
 
 @media (max-width: 640px) {
   .top-header { flex-direction: column; gap: 6px; padding: 8px 12px; }

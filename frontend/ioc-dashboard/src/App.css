@@ -159,6 +159,63 @@
 .stat-title { font-size: 11px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
 .stat-value { font-size: 22px; font-weight: 800; margin-top: 2px; }
 
+/* FORECAST */
+.forecast-section {
+  padding: 0 20px 16px;
+}
+.forecast-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.forecast-header h3 { font-size: 15px; color: #334155; }
+.forecast-header span { font-size: 12px; color: #64748b; }
+.forecast-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.forecast-card {
+  background: white;
+  border-radius: 10px;
+  padding: 14px;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+.forecast-card.warning { border-left: 5px solid #f59e0b; }
+.forecast-card.critical { border-left: 5px solid #dc2626; }
+.forecast-card.stable { border-left: 5px solid #16a34a; }
+.forecast-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+.forecast-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #f1f5f9;
+}
+.forecast-card.warning .forecast-badge { background: #fef3c7; color: #92400e; }
+.forecast-card.critical .forecast-badge { background: #fee2e2; color: #991b1b; }
+.forecast-card.stable .forecast-badge { background: #dcfce7; color: #166534; }
+.forecast-metrics {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 12px;
+  font-size: 12px;
+}
+.forecast-note {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #64748b;
+}
+
 /* CHARTS */
 .chart-row {
   display: grid;
@@ -221,6 +278,27 @@
 .data-table tr:hover td { background: #f8fafc; }
 .row-critical { background: #fef2f2; }
 .row-warning { background: #fffbeb; }
+.lot-row-clickable { cursor: pointer; transition: background 0.15s; }
+.lot-row-clickable:hover { background: #eff6ff !important; }
+.lot-row-clickable:hover td { background: #eff6ff !important; }
+
+.table-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.table-section-header h2 { margin: 0; }
+
+.vehicle-type-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+.vehicle-type-badge.moto { background: #fef3c7; color: #92400e; }
+.vehicle-type-badge.car { background: #dbeafe; color: #1e40af; }
 
 .pct-bar { display: flex; align-items: center; gap: 6px; font-size: 12px; }
 .pct-fill { height: 6px; border-radius: 3px; min-width: 2px; }
@@ -335,3 +413,17 @@
 .qr-expire { font-size: 12px; color: #f59e0b; margin-top: 8px; font-weight: 600; }
 .payment-hint { font-size: 13px; color: #6b7280; margin-bottom: 12px; text-align: center; }
 .waiting-text { font-size: 12px; color: #f59e0b; margin-top: 8px; font-style: italic; text-align: center; }
+
+.lang-switcher {
+  padding: 5px 12px;
+  border-radius: 5px;
+  border: 1px solid #94a3b8;
+  background: transparent;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+.lang-switcher:hover { background: #94a3b8; color: #0f172a; }

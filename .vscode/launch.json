@@ -3,10 +3,13 @@
   "configurations": [
     {
       "name": "Backend (Port 3002)",
-      "type": "node-terminal",
+      "type": "node",
       "request": "launch",
       "cwd": "${workspaceFolder}/backend",
-      "command": "set PORT=3002 && npm run dev"
+      "program": "${workspaceFolder}/backend/server.js",
+      "env": {
+        "PORT": "3002"
+      }
     },
     {
       "name": "Frontend: User Map (Port 5173)",

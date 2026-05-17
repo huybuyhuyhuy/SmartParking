@@ -1,11 +1,8 @@
 import jwt from "jsonwebtoken";
 import QRCode from "qrcode";
-import { db } from "./db.js";
+import { db, isSqlUp } from "./db.js";
 import { getMemoryBookings } from "./bookingController.js";
-
-async function isMysqlUp() {
-  try { await db.query("SELECT 1"); return true; } catch (_e) { return false; }
-}
+import { broadcastDashboardUpdate } from "../wsServer.js";
 
 // In-memory booking state (shared concept with momoController)
 const memoryPaymentState = new Map();
@@ -21,7 +18,7 @@ export async function confirmPaymentAndGenerateQr(req, res) {
   }
 
   if (status !== "PAID") {
-    if (await isMysqlUp()) {
+    if (await isSqlUp()) {
       await db.query("UPDATE bookings SET payment_status='FAILED' WHERE id=?", [bookingId]).catch(() => {});
     }
     memoryPaymentState.set(String(bookingId), { paymentStatus: "FAILED", provider });
@@ -29,22 +26,28 @@ export async function confirmPaymentAndGenerateQr(req, res) {
   }
 
   let lotId = "UNKNOWN";
-  if (await isMysqlUp()) {
+  let plateNumber = "UNKNOWN";
+  if (await isSqlUp()) {
     try {
-      const [rows] = await db.query("SELECT parking_lot_id FROM bookings WHERE id=?", [bookingId]);
+      const [rows] = await db.query("SELECT parking_lot_id, plate_number FROM bookings WHERE id=?", [bookingId]);
       lotId = rows.length > 0 ? rows[0].parking_lot_id : "UNKNOWN";
+      plateNumber = rows.length > 0 ? (rows[0].plate_number || "UNKNOWN") : "UNKNOWN";
     } catch (_e) {}
+  } else {
+    const found = getMemoryBookings().find((b) => String(b.id) === String(bookingId));
+    lotId = found?.parking_lot_id || "UNKNOWN";
+    plateNumber = found?.plate_number || "UNKNOWN";
   }
 
   const qrToken = jwt.sign(
-    { sub: `booking:${bookingId}`, role: "USER", lotId, gateId: "HUE_GATE_1", direction: "IN" },
+    { sub: `booking:${bookingId}`, role: "USER", lotId, gateId: "HUE_GATE_1", direction: "IN", plateNumber },
     process.env.QR_JWT_SECRET || "smart-parking-hue-qr-secret",
     { expiresIn: "4h" }
   );
   const qrDataUrl = await QRCode.toDataURL(qrToken);
   const expiresAt = new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString();
 
-  if (await isMysqlUp()) {
+  if (await isSqlUp()) {
     await db.query(
       "UPDATE bookings SET payment_status='PAID', payment_provider=?, qr_code_token=? WHERE id=?",
       [provider, qrToken, bookingId]
@@ -62,5 +65,8 @@ export async function confirmPaymentAndGenerateQr(req, res) {
     found.qr_code_token = qrToken;
   }
 
-  return res.json({ bookingId, qrToken, qrDataUrl, expiresAt, direction: "IN" });
+  // Broadcast dashboard refresh to all connected clients
+  try { broadcastDashboardUpdate({}); } catch (_e) {}
+
+  return res.json({ bookingId, lotId, plateNumber, qrToken, qrDataUrl, expiresAt, direction: "IN" });
 }
