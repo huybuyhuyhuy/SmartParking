@@ -23,9 +23,22 @@ docs/                    # Tài liệu dự án
 ## Chạy nhanh
 
 1. Cài Node.js LTS.
-2. Nếu chỉ muốn demo nhanh, có thể chạy ngay bằng chế độ fallback in-memory.
-3. Nếu muốn chạy đầy đủ, cấu hình SQL Server, Redis và Kafka theo `backend/.env.example`.
-4. Double-click `run-all.bat`.
+2. Copy `backend/.env.example` thành `backend/.env`, điền `DB_PASSWORD` thật.
+3. Chạy bootstrap dữ liệu lần đầu:
+
+```bash
+cd backend
+npm run db:bootstrap
+npm run db:check
+```
+
+4. Nếu cần dữ liệu đẹp cho dashboard demo:
+
+```bash
+npm run db:seed:demo
+```
+
+5. Double-click `run-all.bat`.
 
 Sau khi chạy:
 
@@ -57,12 +70,41 @@ Sau khi chạy:
 
 ## Chế độ demo và chế độ đầy đủ
 
-- Nếu SQL Server chưa chạy, backend tự chuyển sang bộ nhớ tạm để vẫn demo được.
+- `REQUIRE_DATABASE=true` buộc backend chỉ chạy khi SQL Server thật sẵn sàng.
+- `ALLOW_MEMORY_FALLBACK=true` chỉ nên dùng cho demo nhanh; khi đó backend mới được phép chuyển sang bộ nhớ tạm.
 - Nếu Redis chưa chạy, hệ thống tự dùng cache trong RAM.
 - Nếu Kafka không cần cho buổi demo, đặt `KAFKA_ENABLED=false` để tránh retry gây chậm.
+- Luồng thanh toán trực tiếp chỉ dành cho demo và được bật/tắt bằng `DEMO_DIRECT_PAYMENT_ENABLED`.
+- Cổng quét QR thật có thể dùng `x-gate-api-key`; dashboard admin vẫn có thể mô phỏng quét bằng token đăng nhập.
 
 ## Ghi chú trước khi triển khai thật
 
 - Không dùng secret mặc định trong production.
 - Đưa `.env` thật ra khỏi source control; chỉ giữ `.env.example`.
 - Bật SQL Server, Redis và Kafka nếu muốn dữ liệu bền vững và pipeline realtime đầy đủ.
+- Tắt `DEMO_DIRECT_PAYMENT_ENABLED`, dùng callback xác thực từ nhà cung cấp thanh toán, và không hiển thị tài khoản demo trong bản build production.
+- Không chạy seed demo tự động khi backend khởi động; bootstrap/migration/seed phải là bước có chủ đích.
+
+## Lệnh dữ liệu
+
+```bash
+cd backend
+npm run db:bootstrap   # tạo DB, login ứng dụng, schema và dữ liệu tham chiếu
+npm run db:check       # kiểm tra kết nối + số lượng dữ liệu lõi
+npm run db:migrate     # áp migration khi schema tiến hóa
+npm run db:seed:reference # nạp lại dữ liệu tham chiếu lõi nếu cần
+npm run db:seed:demo   # nạp dữ liệu trình diễn cho dashboard
+```
+
+Schema chuẩn hiện nằm trong `backend/Data/sqlserver/`; backend không còn tự vá schema hay tự nạp seed lúc khởi động nữa.
+
+## Kiểm tra nhanh hàng rào bảo mật
+
+Khi backend đang chạy:
+
+```bash
+cd backend
+npm run smoke
+```
+
+Script này kiểm tra nhanh health, route admin, lịch sử booking, sinh QR và thanh toán demo không bị mở cho người chưa đăng nhập.

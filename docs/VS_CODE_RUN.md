@@ -21,6 +21,8 @@ Khi muốn dừng toàn bộ, double-click `stop-all.bat`.
 cd backend
 copy .env.example .env
 npm install
+npm run db:bootstrap
+npm run db:check
 npm run dev
 ```
 
@@ -55,11 +57,16 @@ Nếu chỉ demo nhanh, hệ thống vẫn chạy được khi SQL Server/Kafka 
 Xem `backend/.env.example`:
 
 - `DB_SERVER`, `DB_DATABASE`, `DB_PORT`
+- `DB_USER`, `DB_PASSWORD`
+- `DB_ENCRYPT`, `DB_TRUST_SERVER_CERTIFICATE`
+- `REQUIRE_DATABASE`, `ALLOW_MEMORY_FALLBACK`
 - `REDIS_URL`
 - `KAFKA_ENABLED`, `KAFKA_BROKER`
 - `SENSOR_API_KEY`
+- `GATE_API_KEY`
 - `JWT_SECRET`
 - `QR_JWT_SECRET`
+- `DEMO_DIRECT_PAYMENT_ENABLED`
 
 ## Test nhanh
 
@@ -82,3 +89,26 @@ curl -X PUT http://localhost:3002/api/slots/HUE-P001 ^
 
 - Email: `admin@hue.vn`
 - Mật khẩu: `123456`
+
+## Kiểm tra sau khi chạy
+
+```bash
+cd backend
+npm run db:check
+npm run smoke
+```
+
+Smoke check sẽ xác nhận các hàng rào quan trọng:
+
+- route admin không mở cho anonymous user
+- thanh toán demo không mở cho anonymous user
+- lịch sử booking cần đăng nhập
+- sinh QR không mở cho anonymous user
+
+## Chế độ dữ liệu nên dùng
+
+- Khi làm bài nghiêm túc: `REQUIRE_DATABASE=true`, `ALLOW_MEMORY_FALLBACK=false`
+- Khi chỉ cần demo nhanh trên máy chưa có SQL Server: `REQUIRE_DATABASE=false`, `ALLOW_MEMORY_FALLBACK=true`
+- Dữ liệu demo dashboard không còn tự sinh mỗi lần backend khởi động; chỉ nạp khi bạn chủ động chạy `npm run db:seed:demo`
+- Schema chuẩn nằm trong `backend/Data/sqlserver/` và được áp qua `npm run db:bootstrap`
+- Khi schema thay đổi dần, dùng `npm run db:migrate`; khi chỉ cần nạp lại dữ liệu tham chiếu lõi, dùng `npm run db:seed:reference`

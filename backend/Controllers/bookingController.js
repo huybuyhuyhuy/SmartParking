@@ -3,12 +3,19 @@ import path from "node:path";
 import { db, isSqlUp } from "./db.js";
 import { getInternalSlotCount, internalUpdateSlot } from "./slotController.js";
 import { broadcastDashboardUpdate } from "../wsServer.js";
+import { sendError } from "./httpResponse.js";
+import { recordTelemetryEvent } from "./telemetryController.js";
+import { recordGateEvent } from "./qrController.js";
 
 const GEO_PATH = path.resolve(process.cwd(), "Data", "hue_parking_geometry.json");
 
 // In-memory fallback
 const memoryBookings = [];
 let memoryBookingId = 1000;
+
+function isBookingActive(booking) {
+  return Boolean(booking) && !booking.ended_at && booking.payment_status === "PAID";
+}
 
 export function getMemoryBookings() {
   return memoryBookings;
@@ -18,7 +25,13 @@ export async function createBooking(req, res) {
   const { userId, lotId, plateNumber, phoneNumber, estimatedHours, startTime, vehicleType } = req.body || {};
   const effectiveUserId = req.user?.userId ?? userId ?? 0;
   if (!lotId || !plateNumber) {
-    return res.status(400).json({ message: "lotId and plateNumber are required" });
+    recordTelemetryEvent("booking_creation_failed", {
+      requestId: req.requestId,
+      userId: effectiveUserId,
+      lotId,
+      errorCode: "VALIDATION_REQUIRED_FIELD"
+    });
+    return sendError(res, 400, "VALIDATION_REQUIRED_FIELD", "lotId and plateNumber are required");
   }
 
   // Validate startTime if provided (future time booking)
@@ -27,10 +40,22 @@ export async function createBooking(req, res) {
   if (startTime) {
     const parsed = new Date(startTime);
     if (isNaN(parsed.getTime())) {
-      return res.status(400).json({ message: "startTime is not a valid date" });
+      recordTelemetryEvent("booking_creation_failed", {
+        requestId: req.requestId,
+        userId: effectiveUserId,
+        lotId,
+        errorCode: "VALIDATION_INVALID_DATE"
+      });
+      return sendError(res, 400, "VALIDATION_INVALID_DATE", "startTime is not a valid date");
     }
     if (parsed <= new Date()) {
-      return res.status(400).json({ message: "startTime must be in the future" });
+      recordTelemetryEvent("booking_creation_failed", {
+        requestId: req.requestId,
+        userId: effectiveUserId,
+        lotId,
+        errorCode: "VALIDATION_DATE_MUST_BE_FUTURE"
+      });
+      return sendError(res, 400, "VALIDATION_DATE_MUST_BE_FUTURE", "startTime must be in the future");
     }
     scheduledStart = parsed.toISOString().slice(0, 19).replace("T", " ");
     effectiveStartedAt = scheduledStart;
@@ -41,12 +66,19 @@ export async function createBooking(req, res) {
   if (await isSqlUp()) {
     try {
       const [dupRows] = await db.query(
-        "SELECT id, parking_lot_id, payment_status FROM bookings WHERE plate_number=? AND payment_status IN ('PENDING','PAID') ORDER BY created_at DESC OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY",
+        "SELECT id, parking_lot_id, payment_status FROM bookings WHERE plate_number=? AND payment_status = 'PAID' AND ended_at IS NULL ORDER BY created_at DESC OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY",
         [plate]
       );
       if (dupRows.length > 0) {
-        return res.status(409).json({
-          message: `Biển số ${plate} đã được đặt chỗ tại bãi ${dupRows[0].parking_lot_id}. Mỗi xe chỉ được đặt 1 chỗ.`,
+        recordTelemetryEvent("booking_creation_failed", {
+          requestId: req.requestId,
+          userId: effectiveUserId,
+          lotId,
+          errorCode: "BOOKING_DUPLICATE_PLATE"
+        });
+        return sendError(res, 409, "BOOKING_DUPLICATE_PLATE", `Biển số ${plate} đã được đặt chỗ tại bãi ${dupRows[0].parking_lot_id}. Mỗi xe chỉ được đặt 1 chỗ.`, {
+          existingBookingId: dupRows[0].id
+        }, {
           duplicate: true,
           existingBookingId: dupRows[0].id
         });
@@ -54,11 +86,18 @@ export async function createBooking(req, res) {
     } catch (_e) {}
   } else {
     const dup = memoryBookings.find(
-      (b) => b.plate_number.toUpperCase() === plate && (b.payment_status === "PENDING" || b.payment_status === "PAID")
+      (b) => b.plate_number.toUpperCase() === plate && isBookingActive(b)
     );
     if (dup) {
-      return res.status(409).json({
-        message: `Biển số ${plate} đã được đặt chỗ tại bãi ${dup.parking_lot_id}. Mỗi xe chỉ được đặt 1 chỗ.`,
+      recordTelemetryEvent("booking_creation_failed", {
+        requestId: req.requestId,
+        userId: effectiveUserId,
+        lotId,
+        errorCode: "BOOKING_DUPLICATE_PLATE"
+      });
+      return sendError(res, 409, "BOOKING_DUPLICATE_PLATE", `Biển số ${plate} đã được đặt chỗ tại bãi ${dup.parking_lot_id}. Mỗi xe chỉ được đặt 1 chỗ.`, {
+        existingBookingId: dup.id
+      }, {
         duplicate: true,
         existingBookingId: dup.id
       });
@@ -67,10 +106,22 @@ export async function createBooking(req, res) {
 
   const currentSlots = await getInternalSlotCount(lotId);
   if (currentSlots === undefined) {
-    return res.status(404).json({ message: "Parking lot not found" });
+    recordTelemetryEvent("booking_creation_failed", {
+      requestId: req.requestId,
+      userId: effectiveUserId,
+      lotId,
+      errorCode: "PARKING_LOT_NOT_FOUND"
+    });
+    return sendError(res, 404, "PARKING_LOT_NOT_FOUND", "Parking lot not found");
   }
   if (currentSlots <= 0) {
-    return res.status(400).json({ message: "Bai xe da het cho. Vui long chon bai xe khac." });
+    recordTelemetryEvent("booking_creation_failed", {
+      requestId: req.requestId,
+      userId: effectiveUserId,
+      lotId,
+      errorCode: "SLOT_FULL"
+    });
+    return sendError(res, 409, "SLOT_FULL", "Bai xe da het cho. Vui long chon bai xe khac.");
   }
 
   const hours = Number(estimatedHours) || 2;
@@ -95,19 +146,35 @@ export async function createBooking(req, res) {
 
   if (await isSqlUp()) {
     try {
-      const [result] = await db.query(
+      const [rows] = await db.query(
         `INSERT INTO bookings (user_id, parking_lot_id, plate_number, vehicle_type, phone_number, estimated_hours, scheduled_start, amount, payment_status, started_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ${effectiveStartedAt ? `?` : `NOW()`})`,
+         OUTPUT INSERTED.id AS id
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'PENDING', ${effectiveStartedAt ? `?` : `SYSDATETIME()`})`,
         effectiveStartedAt
           ? [effectiveUserId, lotId, plate, vehicleType || "CAR", phoneNumber || "", hours, scheduledStart, amount, effectiveStartedAt]
           : [effectiveUserId, lotId, plate, vehicleType || "CAR", phoneNumber || "", hours, null, amount]
       );
-      const bookingId = result.insertId;
+      const bookingId = rows[0]?.id;
+      if (!bookingId) throw new Error("Booking id was not returned by SQL Server");
       const newCount = Math.max(0, currentSlots - 1);
       await internalUpdateSlot(lotId, newCount, "BOOKING_RESERVATION");
+      recordTelemetryEvent("booking_created", {
+        requestId: req.requestId,
+        userId: effectiveUserId,
+        bookingId,
+        lotId,
+        vehicleType: vehicleType || "CAR",
+        amount
+      });
       return res.json({ success: true, bookingId, lotId, plateNumber: plate, amount, estimatedHours: hours, message: "Dat cho thanh cong. Vui long thanh toan de nhan QR code." });
     } catch (err) {
-      return res.status(500).json({ message: "Booking creation failed", error: err.message });
+      recordTelemetryEvent("booking_creation_failed", {
+        requestId: req.requestId,
+        userId: effectiveUserId,
+        lotId,
+        errorCode: "SYSTEM_INTERNAL_ERROR"
+      });
+      return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", "Booking creation failed", { cause: err.message });
     }
   }
 
@@ -125,6 +192,14 @@ export async function createBooking(req, res) {
   memoryBookings.unshift(booking);
   const newCount = Math.max(0, currentSlots - 1);
   await internalUpdateSlot(lotId, newCount, "BOOKING_RESERVATION");
+  recordTelemetryEvent("booking_created", {
+    requestId: req.requestId,
+    userId: effectiveUserId,
+    bookingId,
+    lotId,
+    vehicleType: vehicleType || "CAR",
+    amount
+  });
   return res.json({ success: true, bookingId, lotId, plateNumber: plate, amount, estimatedHours: hours, message: "Dat cho thanh cong. Vui long thanh toan de nhan QR code." });
 }
 
@@ -132,7 +207,7 @@ export async function createBooking(req, res) {
 export async function lookupActiveBooking(req, res) {
   const { plateNumber, lotId } = req.query;
   if (!plateNumber || !lotId) {
-    return res.status(400).json({ message: "plateNumber and lotId query params are required" });
+    return sendError(res, 400, "VALIDATION_REQUIRED_FIELD", "plateNumber and lotId query params are required");
   }
 
   const plate = plateNumber.trim().toUpperCase();
@@ -141,10 +216,10 @@ export async function lookupActiveBooking(req, res) {
   if (await isSqlUp()) {
     try {
       const [rows] = await db.query(
-        `SELECT b.id, b.parking_lot_id, b.plate_number, b.payment_status, b.qr_code_token, b.amount, b.created_at,
+        `SELECT b.id, b.parking_lot_id, b.plate_number, b.payment_status, b.qr_code_token, b.exit_qr_code_token, b.amount, b.created_at,
                 p.name as lot_name
          FROM bookings b LEFT JOIN parking_lots p ON b.parking_lot_id = p.id
-         WHERE b.plate_number=? AND b.parking_lot_id=? AND b.payment_status='PAID'
+         WHERE b.plate_number=? AND b.parking_lot_id=? AND b.payment_status='PAID' AND b.ended_at IS NULL
          ORDER BY b.created_at DESC OFFSET 0 ROWS FETCH NEXT 1 ROWS ONLY`,
         [plate, lotId]
       );
@@ -154,12 +229,12 @@ export async function lookupActiveBooking(req, res) {
     } catch (_e) {}
   } else {
     found = memoryBookings.find(
-      (b) => b.plate_number.toUpperCase() === plate && b.parking_lot_id === lotId && b.payment_status === "PAID"
+      (b) => b.plate_number.toUpperCase() === plate && b.parking_lot_id === lotId && isBookingActive(b)
     );
   }
 
   if (!found) {
-    return res.status(404).json({ message: "No active booking found for this plate at this lot" });
+    return sendError(res, 404, "BOOKING_ACTIVE_NOT_FOUND", "No active booking found for this plate at this lot");
   }
 
   return res.json({
@@ -169,6 +244,7 @@ export async function lookupActiveBooking(req, res) {
     plateNumber: found.plate_number,
     paymentStatus: found.payment_status,
     qrToken: found.qr_code_token || null,
+    exitQrToken: found.exit_qr_code_token || null,
     amount: found.amount,
     createdAt: found.created_at
   });
@@ -183,33 +259,38 @@ export async function getBooking(req, res) {
       const [rows] = await db.query(
         `SELECT b.id, b.user_id, b.parking_lot_id, b.plate_number, b.phone_number,
                 b.estimated_hours, b.amount, b.payment_status, b.payment_provider,
-                b.qr_code_token, b.started_at, b.ended_at, b.created_at,
+                b.qr_code_token, b.exit_qr_code_token, b.started_at, b.ended_at, b.created_at,
                 p.name as lot_name, p.price_per_hour
          FROM bookings b LEFT JOIN parking_lots p ON b.parking_lot_id = p.id WHERE b.id = ?`, [id]
       );
       if (rows.length > 0) return res.json(rows[0]);
-    } catch (err) { return res.status(500).json({ message: err.message }); }
+    } catch (err) { return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message); }
   }
 
   const b = memoryBookings.find((x) => x.id === id);
-  if (!b) return res.status(404).json({ message: "Booking not found" });
+  if (!b) return sendError(res, 404, "BOOKING_NOT_FOUND", "Booking not found");
   return res.json(b);
 }
 
 export async function listUserBookings(req, res) {
   const { userId } = req.params;
   const uid = Number(userId);
+  const canReadAll = req.user?.role === "ADMIN" || req.user?.role === "OPERATOR";
+  if (!canReadAll && Number(req.user?.userId) !== uid) {
+    return sendError(res, 403, "BOOKING_ACCESS_DENIED", "You can only view your own bookings");
+  }
 
   if (await isSqlUp()) {
     try {
       const [rows] = await db.query(
         `SELECT b.id, b.parking_lot_id, b.plate_number, b.amount, b.payment_status,
-                b.payment_provider, b.qr_code_token, b.started_at, b.ended_at, b.extra_charge, b.created_at, p.name as lot_name
+                b.payment_provider, b.qr_code_token, b.exit_qr_code_token,
+                b.started_at, b.ended_at, b.extra_charge, b.created_at, p.name as lot_name
          FROM bookings b LEFT JOIN parking_lots p ON b.parking_lot_id = p.id
          WHERE b.user_id = ? ORDER BY b.created_at DESC OFFSET 0 ROWS FETCH NEXT 50 ROWS ONLY`, [uid]
       );
       return res.json(rows);
-    } catch (err) { return res.status(500).json({ message: err.message }); }
+    } catch (err) { return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message); }
   }
 
   return res.json(memoryBookings.filter((b) => b.user_id === uid));
@@ -220,7 +301,7 @@ export async function listCurrentUserBookings(req, res) {
   return listUserBookings(req, res);
 }
 
-async function getBookingOwnerId(bookingId) {
+export async function getBookingOwnerId(bookingId) {
   const id = Number(bookingId);
   if (await isSqlUp()) {
     try {
@@ -231,7 +312,7 @@ async function getBookingOwnerId(bookingId) {
   return memoryBookings.find((b) => String(b.id) === String(id))?.user_id ?? null;
 }
 
-export async function processCheckout(bookingId) {
+export async function processCheckout(bookingId, context = {}) {
   const id = Number(bookingId);
   let booking = null;
   let mysqlOk = true;
@@ -256,7 +337,7 @@ export async function processCheckout(bookingId) {
 
   if (!booking) throw Object.assign(new Error("Booking not found"), { status: 404 });
   if (booking.ended_at) throw Object.assign(new Error("Xe da duoc tra truoc do"), { status: 400 });
-  if (booking.payment_status !== "PAID") throw Object.assign(new Error("Chua thanh toan"), { status: 400 });
+  if (!isBookingActive(booking)) throw Object.assign(new Error("Chua thanh toan"), { status: 400 });
 
   const now = new Date();
   const startedAt = new Date(booking.started_at);
@@ -265,17 +346,35 @@ export async function processCheckout(bookingId) {
 
   const pricePerHour = Number(booking.price_per_hour || 5000);
   const paidAmount = Number(booking.amount);
+  const estimatedHours = Number(booking.estimated_hours || 2);
+  const paidDurationCost = Math.round(estimatedHours * pricePerHour * 100) / 100;
   const actualCost = Math.round(actualHours * pricePerHour * 100) / 100;
-  const extraCharge = Math.max(0, Math.round((actualCost - paidAmount) * 100) / 100);
+  const extraCharge = Math.max(0, Math.round((actualCost - paidDurationCost) * 100) / 100);
+  const lateMinutes = Math.max(0, Math.round((actualHours - estimatedHours) * 60));
 
   if (mysqlOk) {
     await db.query(
-      "UPDATE bookings SET ended_at = NOW(), extra_charge = ? WHERE id = ?",
+      "UPDATE bookings SET ended_at = SYSDATETIME(), extra_charge = ? WHERE id = ?",
       [extraCharge, id]
     );
   } else {
     booking.ended_at = now.toISOString();
     booking.extra_charge = extraCharge;
+  }
+
+  if (context.recordGateEvent !== false) {
+    const gateEvent = {
+      gateId: context.gateId || "HUE_GATE_1",
+      actor: `booking:${id}`,
+      role: "USER",
+      direction: "OUT",
+      scannerId: context.scannerId || "CHECKOUT_FLOW",
+      granted: true,
+      reasonCode: null,
+      source: "CHECKOUT",
+      ts: now.toISOString()
+    };
+    try { await recordGateEvent(gateEvent); } catch (_e) {}
   }
 
   // Free up the parking slot
@@ -286,6 +385,15 @@ export async function processCheckout(bookingId) {
   // Broadcast dashboard refresh to all connected clients
   try { broadcastDashboardUpdate({}); } catch (_e) {}
 
+  recordTelemetryEvent("checkout_completed", {
+    requestId: context.requestId,
+    bookingId: String(id),
+    lotId,
+    actualHours,
+    extraCharge,
+    amount: paidAmount
+  });
+
   return {
     success: true,
     bookingId: String(id),
@@ -294,30 +402,37 @@ export async function processCheckout(bookingId) {
     lotId,
     started_at: booking.started_at,
     ended_at: mysqlOk ? now.toISOString() : booking.ended_at,
-    estimatedHours: Number(booking.estimated_hours || 2),
+    estimatedHours,
     actualHours,
     pricePerHour,
     amount: paidAmount,
     extraCharge,
-    totalCost: Math.round((paidAmount + extraCharge) * 100) / 100
+    lateMinutes,
+    totalCost: Math.round((paidAmount + extraCharge) * 100) / 100,
+    paidDurationCost
   };
 }
 
 export async function checkoutHandler(req, res) {
   try {
     const { bookingId } = req.body || {};
-    if (!bookingId) return res.status(400).json({ message: "bookingId is required" });
+    if (!bookingId) return sendError(res, 400, "VALIDATION_REQUIRED_FIELD", "bookingId is required", undefined, { success: false });
     if (req.user?.role !== "ADMIN" && req.user?.role !== "OPERATOR") {
       const ownerId = await getBookingOwnerId(bookingId);
-      if (ownerId == null) return res.status(404).json({ success: false, message: "Booking not found" });
+      if (ownerId == null) return sendError(res, 404, "BOOKING_NOT_FOUND", "Booking not found", undefined, { success: false });
       if (Number(ownerId) !== Number(req.user?.userId)) {
-        return res.status(403).json({ success: false, message: "You can only checkout your own booking" });
+        return sendError(res, 403, "BOOKING_ACCESS_DENIED", "You can only checkout your own booking", undefined, { success: false });
       }
     }
-    const result = await processCheckout(bookingId);
+    const result = await processCheckout(bookingId, { requestId: req.requestId });
     return res.json(result);
   } catch (err) {
-    return res.status(err.status || 500).json({ success: false, message: err.message });
+    const code =
+      err.status === 404 ? "BOOKING_NOT_FOUND" :
+      err.message === "Xe da duoc tra truoc do" ? "BOOKING_ALREADY_CHECKED_OUT" :
+      err.message === "Chua thanh toan" ? "BOOKING_NOT_PAID" :
+      "SYSTEM_INTERNAL_ERROR";
+    return sendError(res, err.status || 500, code, err.message, undefined, { success: false });
   }
 }
 
@@ -347,11 +462,11 @@ export async function getAllBookings(req, res) {
 
       const [rows] = await db.query(sql, params);
       return res.json(rows);
-    } catch (err) { return res.status(500).json({ message: err.message }); }
+    } catch (err) { return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message); }
   }
 
   let result = memoryBookings.slice(0, limit).map((b) => ({ ...b, lot_name: b.parking_lot_id }));
   if (lotId) result = result.filter((b) => b.parking_lot_id === lotId);
-  if (activeOnly) result = result.filter((b) => b.payment_status === "PAID" && !b.ended_at);
+  if (activeOnly) result = result.filter((b) => isBookingActive(b));
   return res.json(result);
 }

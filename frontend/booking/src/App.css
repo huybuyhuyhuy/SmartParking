@@ -1,11 +1,20 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body, #root {
+  width: 100%;
+  min-height: 100%;
+  font-family: Inter, "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 .login-page {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: inherit;
 }
 
 .booking-result-card {
@@ -15,7 +24,7 @@
   width: 100%;
   max-width: 500px;
   box-shadow: 0 25px 60px rgba(0,0,0,0.15);
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: inherit;
 }
 
 .booking-result-header { text-align: center; margin-bottom: 24px; }

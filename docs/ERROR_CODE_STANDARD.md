@@ -75,6 +75,8 @@ Cách này đủ cho demo, nhưng chưa đủ ổn định cho frontend, analyti
 | `AUTH_ADMIN_OR_OPERATOR_REQUIRED` | 403 | Route chỉ cho admin/operator |
 | `AUTH_ADMIN_REQUIRED` | 403 | Route chỉ cho admin |
 | `GATE_API_KEY_INVALID` | 401 | Gate key không hợp lệ |
+| `SENSOR_API_KEY_INVALID` | 401 | Sensor key không hợp lệ |
+| `USER_NOT_FOUND` | 404 | Không tìm thấy người dùng |
 
 ### 4.2 Validation chung
 
@@ -116,6 +118,7 @@ Cách này đủ cho demo, nhưng chưa đủ ổn định cho frontend, analyti
 | `PAYMENT_ACCESS_DENIED` | 403 | Người dùng không có quyền thao tác booking đó |
 | `PAYMENT_CREATE_FAILED` | 502 | Provider từ chối tạo giao dịch |
 | `PAYMENT_PROVIDER_UNAVAILABLE` | 503 | Provider thanh toán lỗi hoặc mất kết nối |
+| `PAYMENT_PROVIDER_REJECTED` | 409 | Provider báo giao dịch thất bại hoặc bị hủy |
 | `PAYMENT_STATUS_NOT_FOUND` | 404 | Không tìm thấy trạng thái thanh toán |
 
 ### 4.6 QR và gate

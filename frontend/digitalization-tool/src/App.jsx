@@ -9,6 +9,7 @@ import "./App.css";
 
 const formatCurrency = (n, locale) =>
   new Intl.NumberFormat(locale, { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(n || 0);
+const SHOW_DEMO_HINTS = import.meta.env.DEV && import.meta.env.VITE_SHOW_DEMO_HINTS !== "false";
 
 export default function App() {
   const { t, i18n } = useTranslation();
@@ -26,11 +27,17 @@ export default function App() {
   const map = useRef(null);
   const drawn = useRef(null);
   const existingLayer = useRef(null);
+  const freeDrawModeRef = useRef(false);
+  const freeDrawActiveRef = useRef(false);
+  const freeDrawPointsRef = useRef([]);
+  const freeDrawPreviewRef = useRef(null);
+  const isEditingRef = useRef(false);
   const [lastGeoJson, setLastGeoJson] = useState(null);
   const [status, setStatus] = useState("");
   const [lots, setLots] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+  const [freeDrawMode, setFreeDrawMode] = useState(false);
 
   const [history, setHistory] = useState([]);
   const [historyIdx, setHistoryIdx] = useState(-1);
@@ -54,6 +61,14 @@ export default function App() {
   });
 
   const [form, setForm] = useState(initForm());
+
+  useEffect(() => {
+    freeDrawModeRef.current = freeDrawMode;
+  }, [freeDrawMode]);
+
+  useEffect(() => {
+    isEditingRef.current = isEditing;
+  }, [isEditing]);
 
   const authFetch = (url, opts = {}) => {
     const headers = { ...(opts.headers || {}) };
@@ -192,24 +207,76 @@ export default function App() {
     map.current.addLayer(drawn.current);
 
     const control = new L.Control.Draw({
-      draw: {
-        polyline: false, rectangle: false, circle: false, circlemarker: false, marker: false,
-        polygon: { allowIntersection: false, showArea: true }
-      },
+      draw: false,
       edit: { featureGroup: drawn.current }
     });
     map.current.addControl(control);
 
-    map.current.on(L.Draw.Event.CREATED, (e) => {
+    const adoptDraftLayer = (layer) => {
       drawn.current.clearLayers();
-      drawn.current.addLayer(e.layer);
-      const geoJson = e.layer.toGeoJSON();
+      drawn.current.addLayer(layer);
+      const geoJson = layer.toGeoJSON();
       setLastGeoJson(geoJson);
       pushHistory(geoJson);
-      if (!isEditing) {
+      if (!isEditingRef.current) {
         setSelectedId(null);
         setForm(initForm());
       }
+    };
+
+    const finishFreeDraw = () => {
+      if (!freeDrawActiveRef.current) return;
+      freeDrawActiveRef.current = false;
+      map.current.dragging.enable();
+
+      const points = freeDrawPointsRef.current;
+      if (freeDrawPreviewRef.current) {
+        freeDrawPreviewRef.current.remove();
+        freeDrawPreviewRef.current = null;
+      }
+      freeDrawPointsRef.current = [];
+
+      if (points.length < 3) {
+        setStatus(t("statusFreeDrawTooShort"));
+        return;
+      }
+
+      adoptDraftLayer(L.polygon(points, {
+        color: "#2563eb",
+        weight: 3,
+        fillColor: "#93c5fd",
+        fillOpacity: 0.18
+      }));
+      setFreeDrawMode(false);
+      setStatus(t("statusFreeDrawDone"));
+    };
+
+    map.current.on("mousedown", (e) => {
+      if (!freeDrawModeRef.current) return;
+      freeDrawActiveRef.current = true;
+      freeDrawPointsRef.current = [e.latlng];
+      map.current.dragging.disable();
+      if (freeDrawPreviewRef.current) freeDrawPreviewRef.current.remove();
+      freeDrawPreviewRef.current = L.polyline([e.latlng], {
+        color: "#2563eb",
+        weight: 3,
+        dashArray: "6, 4"
+      }).addTo(map.current);
+    });
+    map.current.on("mousemove", (e) => {
+      if (!freeDrawActiveRef.current) return;
+      const points = freeDrawPointsRef.current;
+      const last = points.at(-1);
+      if (!last || map.current.distance(last, e.latlng) >= 1) {
+        points.push(e.latlng);
+        freeDrawPreviewRef.current?.setLatLngs(points);
+      }
+    });
+    map.current.on("mouseup", finishFreeDraw);
+    map.current.on("mouseout", finishFreeDraw);
+
+    map.current.on(L.Draw.Event.CREATED, (e) => {
+      adoptDraftLayer(e.layer);
     });
     map.current.on(L.Draw.Event.EDITED, () => {
       const layers = drawn.current.getLayers();
@@ -253,10 +320,19 @@ export default function App() {
     setHistory([]);
     setHistoryIdx(-1);
     setForm(initForm());
+    setFreeDrawMode(false);
+    freeDrawActiveRef.current = false;
+    freeDrawPointsRef.current = [];
+    if (freeDrawPreviewRef.current) {
+      freeDrawPreviewRef.current.remove();
+      freeDrawPreviewRef.current = null;
+    }
+    map.current?.dragging.enable();
     if (drawn.current) drawn.current.clearLayers();
   };
 
   const selectLot = (lot) => {
+    setFreeDrawMode(false);
     setSelectedId(lot.id);
     setIsEditing(true);
     setForm({
@@ -321,6 +397,23 @@ export default function App() {
     setIsEditing(true);
     setSelectedId(form.id);
     await loadLots();
+  };
+
+  const startFreeDraw = () => {
+    setFreeDrawMode(true);
+    setStatus(t("statusFreeDrawReady"));
+  };
+
+  const cancelFreeDraw = () => {
+    setFreeDrawMode(false);
+    freeDrawActiveRef.current = false;
+    freeDrawPointsRef.current = [];
+    if (freeDrawPreviewRef.current) {
+      freeDrawPreviewRef.current.remove();
+      freeDrawPreviewRef.current = null;
+    }
+    map.current?.dragging.enable();
+    setStatus(t("statusFreeDrawCancelled"));
   };
 
   const removeLot = async () => {
@@ -402,7 +495,7 @@ export default function App() {
             {loginError && <div className="login-error">{loginError}</div>}
             <div className="form-group">
               <label>Email</label>
-              <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="admin@hue.vn" required autoFocus />
+              <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="name@example.com" required autoFocus />
             </div>
             <div className="form-group">
               <label>Password</label>
@@ -410,7 +503,7 @@ export default function App() {
             </div>
             <button type="submit" className="btn btn-primary login-btn">Login</button>
           </form>
-          <p className="login-hint">admin@hue.vn / 123456</p>
+          {SHOW_DEMO_HINTS && <p className="login-hint">admin@hue.vn / 123456</p>}
         </div>
       </div>
     );
@@ -427,6 +520,13 @@ export default function App() {
           </div>
         </div>
         <p className="digi-subtitle">{t("subtitle")}</p>
+
+        <div className="draw-tools">
+          <button className={`btn ${freeDrawMode ? "btn-danger" : "btn-primary"}`} onClick={freeDrawMode ? cancelFreeDraw : startFreeDraw}>
+            {freeDrawMode ? t("btnCancelFreeDraw") : t("btnFreeDraw")}
+          </button>
+          <span>{freeDrawMode ? t("freeDrawActiveHelp") : t("freeDrawHelp")}</span>
+        </div>
 
         <div className="digi-form">
           <div className="form-row">

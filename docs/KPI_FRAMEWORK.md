@@ -169,7 +169,16 @@ Khi `ERROR_CODE_STANDARD.md` được áp dụng, dashboard nên cho phép drill
 | Baseline | Ghi nhận baseline 2 tuần trước khi tối ưu |
 | Review cadence | Review KPI sản phẩm hàng tuần, KPI vận hành hàng ngày |
 
-## 11. Cách dùng tài liệu này
+## 11. Trạng thái triển khai đầu tiên trong code
+
+- Backend đã có telemetry memory-store cho các event cốt lõi đầu tiên.
+- Admin có thể xem nhanh:
+  - `/api/admin/product-funnel`
+  - `/api/admin/telemetry-events`
+- Bản đầu tiên này phù hợp để kiểm chứng funnel và thiết kế dashboard.
+- Trước production, telemetry cần được persist bền vững hơn thay vì chỉ giữ trong memory.
+
+## 12. Cách dùng tài liệu này
 
 1. Product dùng để chốt KPI nào thật sự quan trọng.
 2. Engineering dùng để biết cần instrument gì.

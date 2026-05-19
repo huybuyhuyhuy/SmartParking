@@ -4,6 +4,8 @@ import { db, isSqlUp } from "./db.js";
 import { cacheGet, cacheSet } from "./redisClient.js";
 import { ensureKafkaProducer, producer } from "./kafkaClient.js";
 import { broadcastSlotUpdate } from "../wsServer.js";
+import { sendError } from "./httpResponse.js";
+import { recordTelemetryEvent } from "./telemetryController.js";
 
 const GEO_PATH = path.resolve(process.cwd(), "Data", "hue_parking_geometry.json");
 const slotState = new Map();
@@ -18,15 +20,38 @@ export async function initSlotState() {
     const raw = await fs.readFile(GEO_PATH, "utf-8");
     const geo = JSON.parse(raw);
     const features = geo.features || [];
+    let latestDbSlots = new Map();
+    if (await isSqlUp()) {
+      try {
+        const [rows] = await db.query(
+          `SELECT parking_lot_id, available_slots
+           FROM (
+             SELECT parking_lot_id, available_slots,
+                    ROW_NUMBER() OVER (PARTITION BY parking_lot_id ORDER BY created_at DESC, id DESC) AS rn
+             FROM slot_events
+           ) ranked
+           WHERE rn = 1`
+        );
+        latestDbSlots = new Map(rows.map((row) => [row.parking_lot_id, Number(row.available_slots)]));
+      } catch (_e) {
+        latestDbSlots = new Map();
+      }
+    }
     for (const f of features) {
       const id = f.properties?.id;
       const cap = Number(f.properties?.capacity ?? 100);
       if (id) {
         lotCapacities.set(id, cap);
         if (!slotState.has(id)) {
+          const dbLatest = latestDbSlots.get(id);
           const cached = await cacheGet(`slots:${id}`);
-          const val = (cached !== null && cached !== undefined) ? Math.min(Number(cached), cap) : cap;
+          const val = dbLatest != null
+            ? Math.min(Number(dbLatest), cap)
+            : (cached !== null && cached !== undefined)
+              ? Math.min(Number(cached), cap)
+              : cap;
           slotState.set(id, val);
+          await cacheSet(`slots:${id}`, String(val));
         }
       }
     }
@@ -91,17 +116,22 @@ export async function internalUpdateSlot(lotId, availableSlots, source = "GATE_S
   } catch (_e) {}
 
   broadcastSlotUpdate(lotId, availableSlots);
+  recordTelemetryEvent("slot_state_updated", {
+    lotId,
+    availableSlots,
+    source
+  });
 }
 
 export async function updateSlotBySensor(req, res) {
   if (!requireSensorApiKey(req)) {
-    return res.status(401).json({ message: "Invalid sensor API key" });
+    return sendError(res, 401, "SENSOR_API_KEY_INVALID", "Invalid sensor API key");
   }
 
   const lotId = req.params.id;
   const availableSlots = Number(req.body.availableSlots);
   if (!Number.isInteger(availableSlots) || availableSlots < 0) {
-    return res.status(400).json({ message: "availableSlots must be a non-negative integer" });
+    return sendError(res, 400, "SLOT_AVAILABLE_COUNT_INVALID", "availableSlots must be a non-negative integer");
   }
 
   await internalUpdateSlot(lotId, availableSlots, "IOT_SENSOR");

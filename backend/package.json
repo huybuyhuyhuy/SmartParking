@@ -4,7 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node server.js"
+    "dev": "node server.js",
+    "smoke": "node scripts/security-smoke.mjs",
+    "db:bootstrap": "node scripts/db-bootstrap.mjs",
+    "db:check": "node scripts/db-check.mjs",
+    "db:migrate": "node scripts/db-migrate.mjs",
+    "db:seed:reference": "node scripts/seed-reference-data.mjs",
+    "db:seed:demo": "node scripts/seed-demo-data.mjs"
   },
   "dependencies": {
     "cors": "^2.8.5",

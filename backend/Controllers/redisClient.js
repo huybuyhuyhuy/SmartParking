@@ -48,3 +48,18 @@ export async function cacheSetEx(key, ttlSeconds, value) {
     return "OK";
   });
 }
+
+export async function cacheSetNxEx(key, ttlSeconds, value) {
+  return tryRedis(
+    async () => {
+      const result = await redis.set(key, value, "EX", Math.max(1, ttlSeconds), "NX");
+      return result === "OK";
+    },
+    () => {
+      if (mem.has(key)) return false;
+      mem.set(key, value);
+      setTimeout(() => mem.delete(key), Math.max(0, ttlSeconds) * 1000).unref?.();
+      return true;
+    }
+  );
+}

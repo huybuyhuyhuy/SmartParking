@@ -52,3 +52,19 @@ export function broadcastDashboardUpdate(stats) {
     }
   });
 }
+
+export function broadcastParkingLotUpdate(action, lotId) {
+  if (!wss) return;
+
+  const message = JSON.stringify({
+    type: action === "deleted" ? "parking_lot_deleted" : "parking_lot_updated",
+    lotId,
+    ts: new Date().toISOString()
+  });
+
+  wss.clients.forEach((client) => {
+    if (client.readyState === 1) {
+      try { client.send(message); } catch (_e) {}
+    }
+  });
+}

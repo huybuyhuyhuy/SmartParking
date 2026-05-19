@@ -47,6 +47,18 @@ if not exist "frontend\booking\node_modules" (
   popd
 )
 
+echo Checking backend database mode...
+pushd "backend"
+call npm run db:check >nul 2>nul
+if errorlevel 1 (
+  echo Database check failed. If this is the first run, execute:
+  echo   cd backend ^&^& npm run db:bootstrap
+  echo Then optionally seed dashboard demo data with:
+  echo   npm run db:seed:demo
+  echo.
+)
+popd
+
 echo [2/6] Opening backend terminal on port 3002...
 start "SmartParking Backend (3002)" cmd /k "cd /d %~dp0backend && set PORT=3002 && npm run dev"
 

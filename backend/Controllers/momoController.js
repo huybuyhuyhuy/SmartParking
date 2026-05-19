@@ -5,6 +5,8 @@ import { getMemoryPaymentState } from "./paymentController.js";
 import { getMemoryBookings } from "./bookingController.js";
 import jwt from "jsonwebtoken";
 import QRCode from "qrcode";
+import { sendError } from "./httpResponse.js";
+import { recordTelemetryEvent } from "./telemetryController.js";
 
 // In-memory booking state for fallback
 const memoryBookingState = new Map();
@@ -55,8 +57,15 @@ async function sendMomoRequest(payload) {
 export async function createMomoPayment(req, res) {
   const { bookingId, amount, orderInfo } = req.body || {};
   if (!bookingId || !amount) {
-    return res.status(400).json({ message: "bookingId and amount are required" });
+    return sendError(res, 400, "VALIDATION_REQUIRED_FIELD", "bookingId and amount are required");
   }
+
+  recordTelemetryEvent("payment_initiated", {
+    requestId: req.requestId,
+    bookingId: String(bookingId),
+    provider: "MOMO",
+    amount
+  });
 
   const requestId = `${bookingId}-${Date.now()}`;
   const orderId = `${bookingId}-${Date.now()}`;
@@ -101,9 +110,23 @@ export async function createMomoPayment(req, res) {
         requestId
       });
     }
-    return res.status(400).json({ message: momoRes.message || "MoMo payment creation failed", momoRes });
+    recordTelemetryEvent("payment_failed", {
+      requestId: req.requestId,
+      bookingId: String(bookingId),
+      provider: "MOMO",
+      errorCode: "PAYMENT_CREATE_FAILED"
+    });
+    return sendError(res, 502, "PAYMENT_CREATE_FAILED", momoRes.message || "MoMo payment creation failed", {
+      providerResponse: momoRes
+    });
   } catch (err) {
-    return res.status(500).json({ message: "MoMo service error", error: err.message });
+    recordTelemetryEvent("payment_failed", {
+      requestId: req.requestId,
+      bookingId: String(bookingId),
+      provider: "MOMO",
+      errorCode: "PAYMENT_PROVIDER_UNAVAILABLE"
+    });
+    return sendError(res, 503, "PAYMENT_PROVIDER_UNAVAILABLE", "MoMo service error", { cause: err.message });
   }
 }
 
@@ -150,6 +173,20 @@ export async function momoIpnHandler(req, res) {
         memoryBooking.qr_code_token = qrToken;
       }
 
+      recordTelemetryEvent("payment_succeeded", {
+        requestId: req.requestId,
+        bookingId: String(bookingId),
+        provider: "MOMO",
+        lotId,
+        plateNumber
+      });
+      recordTelemetryEvent("qr_issued", {
+        requestId: req.requestId,
+        bookingId: String(bookingId),
+        lotId,
+        direction: "IN"
+      });
+
       return res.json({ success: true, bookingId, qrToken });
     }
     return res.json({ success: true, message: "Payment confirmed" });
@@ -157,6 +194,12 @@ export async function momoIpnHandler(req, res) {
 
   if (bookingId) {
     await db.query("UPDATE bookings SET payment_status='FAILED' WHERE id=?", [bookingId]).catch(() => {});
+    recordTelemetryEvent("payment_failed", {
+      requestId: req.requestId,
+      bookingId: String(bookingId),
+      provider: "MOMO",
+      errorCode: "PAYMENT_PROVIDER_REJECTED"
+    });
   }
   return res.json({ success: false, message: "Payment failed or cancelled" });
 }
@@ -179,14 +222,14 @@ export async function checkPaymentStatus(req, res) {
         return res.json({ bookingId: b.id, paymentStatus: b.payment_status, qrToken: b.qr_code_token, qrDataUrl });
       }
     } catch (err) {
-      return res.status(500).json({ message: err.message });
+      return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message);
     }
   }
 
   // In-memory fallback: check both local momo state and shared payment state
   let state = memoryBookingState.get(String(bookingId));
   if (!state) state = getMemoryPaymentState().get(String(bookingId));
-  if (!state) return res.status(404).json({ message: "Booking not found" });
+  if (!state) return sendError(res, 404, "PAYMENT_STATUS_NOT_FOUND", "Booking not found");
   let qrDataUrl = null;
   if (state.qrToken) {
     qrDataUrl = await QRCode.toDataURL(state.qrToken);

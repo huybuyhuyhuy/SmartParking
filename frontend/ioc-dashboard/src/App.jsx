@@ -1,14 +1,13 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from "recharts";
+import { XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from "recharts";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import LangSwitcher from "./components/LangSwitcher.jsx";
 import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3002";
-const COLORS = ["#2563eb", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6", "#ec4899", "#14b8a6", "#f97316"];
-
+const SHOW_DEMO_HINTS = import.meta.env.DEV && import.meta.env.VITE_SHOW_DEMO_HINTS !== "false";
 const formatCurrency = (n, locale) =>
   new Intl.NumberFormat(locale, { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(n || 0);
 
@@ -35,6 +34,7 @@ export default function App() {
   const [revenueData, setRevenueData] = useState([]);
   const [lotUtilization, setLotUtilization] = useState([]);
   const [forecast, setForecast] = useState([]);
+  const [productFunnel, setProductFunnel] = useState(null);
   const [lastUpdated, setLastUpdated] = useState("-");
   const [activeTab, setActiveTab] = useState("overview");
   const [lotFilter, setLotFilter] = useState(null); // { id, name } — filter bookings by lot
@@ -47,10 +47,12 @@ export default function App() {
   const [loginPassword, setLoginPassword] = useState("");
   const [loginError, setLoginError] = useState(null);
 
-  const [issuedQr, setIssuedQr] = useState("");
-  const [bookingId, setBookingId] = useState("BK-001");
+  const [entryQr, setEntryQr] = useState("");
+  const [exitQr, setExitQr] = useState("");
+  const [bookingId, setBookingId] = useState("");
   const [selectedLotId, setSelectedLotId] = useState("");
-  const [plateNumber, setPlateNumber] = useState("75A-12345");
+  const [selectedSupportPlate, setSelectedSupportPlate] = useState("");
+  const [plateNumber, setPlateNumber] = useState("");
   const [scanToken, setScanToken] = useState("");
   const [gateStatus, setGateStatus] = useState("");
 
@@ -99,6 +101,7 @@ export default function App() {
     setRevenueData([]);
     setLotUtilization([]);
     setForecast([]);
+    setProductFunnel(null);
   };
 
   useEffect(() => {
@@ -132,7 +135,7 @@ export default function App() {
   const load = useCallback(async () => {
     if (!token) return;
     try {
-      const [lotsRes, eventsRes, gateRes, bookingsRes, statsRes, revenueRes, utilRes, forecastRes] = await Promise.all([
+      const [lotsRes, eventsRes, gateRes, bookingsRes, statsRes, revenueRes, utilRes, forecastRes, funnelRes] = await Promise.all([
         authFetch(`${API_BASE}/api/parking-lots`),
         authFetch(`${API_BASE}/api/admin/slot-events?limit=50`),
         authFetch(`${API_BASE}/api/admin/gate-events?limit=50`),
@@ -140,7 +143,8 @@ export default function App() {
         authFetch(`${API_BASE}/api/admin/stats`),
         authFetch(`${API_BASE}/api/admin/revenue-chart?days=7`),
         authFetch(`${API_BASE}/api/admin/lot-utilization`),
-        authFetch(`${API_BASE}/api/admin/forecast`)
+        authFetch(`${API_BASE}/api/admin/forecast`),
+        authFetch(`${API_BASE}/api/admin/product-funnel`)
       ]);
 
       const lotsData = await lotsRes.json().catch(() => []);
@@ -151,6 +155,7 @@ export default function App() {
       const revenueDataJson = await revenueRes.json().catch(() => []);
       const utilData = await utilRes.json().catch(() => []);
       const forecastData = await forecastRes.json().catch(() => []);
+      const funnelData = await funnelRes.json().catch(() => null);
 
       setLots(Array.isArray(lotsData) ? lotsData : []);
       setEvents(Array.isArray(eventsData) ? eventsData : []);
@@ -160,9 +165,20 @@ export default function App() {
       setRevenueData(Array.isArray(revenueDataJson) ? revenueDataJson : []);
       setLotUtilization(Array.isArray(utilData) ? utilData : []);
       setForecast(Array.isArray(forecastData) ? forecastData : []);
+      setProductFunnel(funnelData && typeof funnelData === "object" ? funnelData : null);
 
       if (Array.isArray(lotsData) && lotsData.length > 0 && !selectedLotId) {
         setSelectedLotId(lotsData[0].id);
+      }
+
+      if (selectedLotId) {
+        const activeBookingsAtLot = Array.isArray(bookingsData)
+          ? bookingsData.filter((b) => String(b.parking_lot_id) === String(selectedLotId) && b.payment_status === "PAID" && !b.ended_at)
+          : [];
+        const firstActive = activeBookingsAtLot[0] || null;
+        setSelectedSupportPlate(firstActive?.plate_number || "");
+        setBookingId(firstActive?.id ? String(firstActive.id) : "");
+        setPlateNumber(firstActive?.plate_number || "");
       }
 
       const newAlerts = [];
@@ -197,7 +213,12 @@ export default function App() {
         ws.onmessage = (ev) => {
           try {
             const data = JSON.parse(ev.data);
-            if (data.type === "dashboard_update" || data.type === "slot_update") {
+            if (
+              data.type === "dashboard_update" ||
+              data.type === "slot_update" ||
+              data.type === "parking_lot_updated" ||
+              data.type === "parking_lot_deleted"
+            ) {
               load();
             }
           } catch (_e) {}
@@ -221,41 +242,164 @@ export default function App() {
   }, [load]);
 
   useEffect(() => {
-    if (miniMap.current || !miniMapRef.current) return;
-    miniMap.current = L.map(miniMapRef.current, { zoomControl: false, attributionControl: false })
-      .setView([16.46, 107.58], 13);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(miniMap.current);
-    miniLayer.current = L.layerGroup().addTo(miniMap.current);
-  }, [token]);
+    if (!token || activeTab !== "overview" || !miniMapRef.current) return undefined;
+
+    if (!miniMap.current) {
+      miniMap.current = L.map(miniMapRef.current, { zoomControl: false, attributionControl: false })
+        .setView([16.4637, 107.5909], 13);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        crossOrigin: true
+      }).addTo(miniMap.current);
+      miniLayer.current = L.layerGroup().addTo(miniMap.current);
+    }
+
+    const firstPaint = requestAnimationFrame(() => miniMap.current?.invalidateSize());
+    const settleTimer = setTimeout(() => miniMap.current?.invalidateSize(), 180);
+
+    return () => {
+      cancelAnimationFrame(firstPaint);
+      clearTimeout(settleTimer);
+      if (miniMap.current) {
+        miniMap.current.remove();
+        miniMap.current = null;
+        miniLayer.current = null;
+      }
+    };
+  }, [token, activeTab]);
 
   useEffect(() => {
-    if (!miniLayer.current) return;
+    if (activeTab !== "overview" || !miniLayer.current) return;
     miniLayer.current.clearLayers();
-    lots.forEach((lot) => {
-      const color = lot.availableSlots > 0 ? "#22c55e" : "#ef4444";
-      L.circleMarker([lot.lat, lot.lng], { radius: 6, fillColor: color, color: "#fff", weight: 1.5, fillOpacity: 0.9 })
+
+    const validLots = lots.filter((lot) => Number.isFinite(Number(lot.lat)) && Number.isFinite(Number(lot.lng)));
+    validLots.forEach((lot) => {
+      const lat = Number(lot.lat);
+      const lng = Number(lot.lng);
+      const color = Number(lot.availableSlots || 0) > 0 ? "#22c55e" : "#ef4444";
+      L.circleMarker([lat, lng], { radius: 6, fillColor: color, color: "#fff", weight: 1.5, fillOpacity: 0.9 })
         .bindTooltip(`${lot.name}: ${lot.availableSlots}/${lot.capacity}`, { direction: "top" })
         .addTo(miniLayer.current);
     });
-  }, [lots]);
+
+    if (validLots.length > 0) {
+      const bounds = L.latLngBounds(validLots.map((lot) => [Number(lot.lat), Number(lot.lng)]));
+      miniMap.current?.fitBounds(bounds.pad(0.2));
+    } else {
+      miniMap.current?.setView([16.4637, 107.5909], 13);
+    }
+
+    const timer = setTimeout(() => {
+      miniMap.current?.invalidateSize();
+    }, 0);
+    return () => clearTimeout(timer);
+  }, [lots, activeTab]);
+
+  useEffect(() => {
+    if (!miniMap.current) return;
+    const timer = setTimeout(() => miniMap.current?.invalidateSize(), 0);
+    return () => clearTimeout(timer);
+  }, [activeTab]);
 
   const totalLots = lots.length;
   const totalCapacity = lots.reduce((sum, l) => sum + Number(l.capacity || 0), 0);
   const totalAvailable = lots.reduce((sum, l) => sum + Number(l.availableSlots || 0), 0);
   const occupancyRate = totalCapacity > 0 ? Math.round(((totalCapacity - totalAvailable) / totalCapacity) * 100) : 0;
   const atRiskLots = forecast.filter((f) => f.riskLevel !== "stable");
+  const funnelCounts = productFunnel?.counts || {};
+  const funnelRates = productFunnel?.rates || {};
+  const formatRate = (value) => value == null ? "-" : `${Math.round(value * 100)}%`;
+  const funnelSteps = [
+    { key: "nearby_search_performed", label: t("funnelSearches"), value: funnelCounts.nearby_search_performed || 0 },
+    { key: "booking_created", label: t("funnelBookings"), value: funnelCounts.booking_created || 0, rate: funnelRates.bookingCreationRate },
+    { key: "payment_succeeded", label: t("funnelPayments"), value: funnelCounts.payment_succeeded || 0, rate: funnelRates.paymentSuccessRate },
+    { key: "gate_granted", label: t("funnelEntries"), value: funnelCounts.gate_granted || 0, rate: funnelRates.gateGrantRate },
+    { key: "checkout_completed", label: t("funnelCompletions"), value: funnelCounts.checkout_completed || 0, rate: funnelRates.sessionCompletionRate }
+  ];
+  const totalGateScans = gateEvents.length;
+  const grantedGateScans = gateEvents.filter((e) => e.granted).length;
+  const deniedGateScans = totalGateScans - grantedGateScans;
+  const gateGrantRate = totalGateScans > 0 ? Math.round((grantedGateScans / totalGateScans) * 100) : 0;
+  const gateInCount = gateEvents.filter((e) => e.granted && e.direction === "IN").length;
+  const gateOutCount = gateEvents.filter((e) => e.granted && e.direction === "OUT").length;
+  const gateMonitors = Object.values(gateEvents.reduce((acc, event) => {
+    const key = `${event.gateId || "UNKNOWN"}::${event.scannerId || "UNKNOWN"}`;
+    if (!acc[key] || new Date(event.ts) > new Date(acc[key].lastSeen)) {
+      acc[key] = {
+        gateId: event.gateId || "UNKNOWN",
+        scannerId: event.scannerId || "UNKNOWN",
+        lastSeen: event.ts,
+        lastGranted: event.granted,
+        lastDirection: event.direction || "UNKNOWN"
+      };
+    }
+    return acc;
+  }, {})).sort((a, b) => new Date(b.lastSeen) - new Date(a.lastSeen));
+  const denialReasons = Object.values(gateEvents.filter((e) => !e.granted).reduce((acc, event) => {
+    const code = event.reasonCode || "UNKNOWN";
+    acc[code] = acc[code] || { code, count: 0 };
+    acc[code].count += 1;
+    return acc;
+  }, {})).sort((a, b) => b.count - a.count);
+  const gateReasonLabel = (code) => t(`gateReason_${code || "UNKNOWN"}`);
+  const actorLabel = (actor) => actor?.startsWith("booking:") ? actor.slice("booking:".length) : actor;
+  const isRecentGateActivity = (ts) => Date.now() - new Date(ts).getTime() <= 5 * 60 * 1000;
 
-  const issueQr = async () => {
+  const issueEntryQr = async () => {
+    const activeBooking = bookings.find((b) => String(b.parking_lot_id) === String(selectedLotId) && b.payment_status === "PAID" && !b.ended_at);
+    const actualBookingId = bookingId || activeBooking?.id;
+    const actualPlateNumber = plateNumber || selectedSupportPlate || activeBooking?.plate_number;
+
+    if (!actualBookingId) {
+      setGateStatus(t("noActiveBookingForLot"));
+      return;
+    }
+    if (!actualPlateNumber) {
+      setGateStatus(t("noPlateForSelectedBooking"));
+      return;
+    }
+
     setGateStatus(t("issuingQr"));
     const res = await authFetch(`${API_BASE}/api/qr/issue`, {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ bookingId, plateNumber, lotId: selectedLotId, gateId: "HUE_GATE_1" })
+      body: JSON.stringify({ bookingId: actualBookingId, plateNumber: actualPlateNumber, lotId: selectedLotId, gateId: "HUE_GATE_1", direction: "IN" })
     });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) { setGateStatus(`Lỗi: ${data?.message || res.statusText}`); return; }
-    setIssuedQr(data.qrToken || "");
-    setScanToken(data.qrToken || "");
+    setEntryQr(data.qrToken || data.entryQrToken || "");
+    setExitQr(data.exitQrToken || "");
+    setScanToken(data.qrToken || data.entryQrToken || "");
+    const dt = new Date(data.timestamp);
+    setGateStatus(t("bookingSuccessGate", { date: formatDateOnly(dt, i18n.language), time: formatTime(dt, i18n.language), id: data.bookingId, plate: data.plateNumber }));
+    await load();
+  };
+
+  const issueExitQr = async () => {
+    const activeBooking = bookings.find((b) => String(b.parking_lot_id) === String(selectedLotId) && b.payment_status === "PAID" && !b.ended_at);
+    const actualBookingId = bookingId || activeBooking?.id;
+    const actualPlateNumber = plateNumber || selectedSupportPlate || activeBooking?.plate_number;
+
+    if (!actualBookingId) {
+      setGateStatus(t("noActiveBookingForLot"));
+      return;
+    }
+    if (!actualPlateNumber) {
+      setGateStatus(t("noPlateForSelectedBooking"));
+      return;
+    }
+
+    setGateStatus(t("issuingQr"));
+    const res = await authFetch(`${API_BASE}/api/qr/issue`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ bookingId: actualBookingId, plateNumber: actualPlateNumber, lotId: selectedLotId, gateId: "HUE_GATE_1", direction: "OUT" })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { setGateStatus(`Lỗi: ${data?.message || res.statusText}`); return; }
+    setEntryQr(data.entryQrToken || "");
+    setExitQr(data.exitQrToken || data.qrToken || "");
+    setScanToken(data.exitQrToken || data.qrToken || "");
     const dt = new Date(data.timestamp);
     setGateStatus(t("bookingSuccessGate", { date: formatDateOnly(dt, i18n.language), time: formatTime(dt, i18n.language), id: data.bookingId, plate: data.plateNumber }));
     await load();
@@ -310,7 +454,14 @@ export default function App() {
     : bookings;
 
   const tabMap = { overview: "tabOverview", lots: "tabLots", bookings: "tabBookings", gate: "tabGate" };
-  const pieData = lots.map((l) => ({ name: l.name, value: Number(l.capacity || 0) - Number(l.availableSlots || 0) }));
+  const capacityData = lots
+    .map((l) => ({
+      name: l.name,
+      capacity: Number(l.capacity || 0),
+      available: Number(l.availableSlots || 0),
+      occupied: Math.max(Number(l.capacity || 0) - Number(l.availableSlots || 0), 0)
+    }))
+    .sort((a, b) => b.capacity - a.capacity);
 
   if (authLoading) return <div className="login-page"><div className="login-card"><p style={{ textAlign: "center" }}>Loading...</p></div></div>;
 
@@ -326,7 +477,7 @@ export default function App() {
             {loginError && <div className="login-error">{loginError}</div>}
             <div className="form-group">
               <label>Email</label>
-              <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="admin@hue.vn" required autoFocus />
+              <input type="email" value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} placeholder="name@example.com" required autoFocus />
             </div>
             <div className="form-group">
               <label>Password</label>
@@ -334,7 +485,7 @@ export default function App() {
             </div>
             <button type="submit" className="btn btn-primary login-btn">Login</button>
           </form>
-          <p className="login-hint">admin@hue.vn / 123456</p>
+          {SHOW_DEMO_HINTS && <p className="login-hint">admin@hue.vn / 123456</p>}
         </div>
       </div>
     );
@@ -389,6 +540,24 @@ export default function App() {
             <StatCard title={t("statAtRiskLots")} value={atRiskLots.length} icon="!" color={atRiskLots.length > 0 ? "#dc2626" : "#16a34a"} />
           </div>
 
+          <div className="funnel-section">
+            <div className="forecast-header">
+              <h3>{t("funnelTitle")}</h3>
+              <span>{t("funnelSubtitle")}</span>
+            </div>
+            <div className="funnel-grid">
+              {funnelSteps.map((step) => (
+                <div key={step.key} className="funnel-card">
+                  <div className="funnel-label">{step.label}</div>
+                  <div className="funnel-value">{step.value}</div>
+                  <div className="funnel-rate">
+                    {step.rate == null ? t("funnelBaseline") : t("funnelRate", { rate: formatRate(step.rate) })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
           <div className="forecast-section">
             <div className="forecast-header">
               <h3>{t("forecastTitle")}</h3>
@@ -429,14 +598,34 @@ export default function App() {
             </div>
             <div className="chart-card">
               <h3>{t("chartCapacityDist")}</h3>
-              <ResponsiveContainer width="100%" height={250}>
-                <PieChart>
-                  <Pie data={pieData} dataKey="value" nameKey="name" cx="50%" cy="50%" outerRadius={90} label={({ name, value }) => `${name}: ${value}`}>
-                    {pieData.map((_, idx) => <Cell key={idx} fill={COLORS[idx % COLORS.length]} />)}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="capacity-chart-scroll">
+                <ResponsiveContainer width="100%" height={Math.max(260, capacityData.length * 34)}>
+                  <BarChart
+                    data={capacityData}
+                    layout="vertical"
+                    margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                    <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      width={210}
+                      interval={0}
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(value) => String(value).length > 30 ? `${String(value).slice(0, 30)}…` : value}
+                    />
+                    <Tooltip
+                      formatter={(value, name, item) => [
+                        Number(value).toLocaleString(i18n.language),
+                        name === "capacity" ? t("thCapacity") : name
+                      ]}
+                      labelFormatter={(label) => label}
+                    />
+                    <Bar dataKey="capacity" fill="#2563eb" radius={[0, 5, 5, 0]} name={t("thCapacity")} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
 
@@ -530,44 +719,157 @@ export default function App() {
 
       {activeTab === "gate" && (
         <div className="gate-section">
+          <div className="gate-summary-grid">
+            <StatCard title={t("gateTotalScans")} value={totalGateScans} icon="S" color="#2563eb" />
+            <StatCard title={t("gateGrantRate")} value={`${gateGrantRate}%`} icon="%" color="#16a34a" />
+            <StatCard title={t("gateDeniedScans")} value={deniedGateScans} icon="!" color="#dc2626" />
+            <StatCard title={t("gateInCount")} value={gateInCount} icon="↓" color="#0891b2" />
+            <StatCard title={t("gateOutCount")} value={gateOutCount} icon="↑" color="#7c3aed" />
+          </div>
+
           <div className="chart-row">
             <div className="chart-card">
-              <h3>{t("qrIssueTitle")}</h3>
-              <div className="form-group">
-                <label>{t("selectLot")}</label>
-                <select value={selectedLotId} onChange={(e) => setSelectedLotId(e.target.value)}>
-                  {lots.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.id})</option>)}
-                </select>
+              <h3>{t("gateMonitorTitle")}</h3>
+              <div className="gate-monitor-list">
+                {gateMonitors.map((gate) => (
+                  <div key={`${gate.gateId}-${gate.scannerId}`} className="gate-monitor-card">
+                    <div>
+                      <b>{gate.gateId}</b>
+                      <div className="event-meta">{gate.scannerId}</div>
+                    </div>
+                    <div className={`gate-live-badge ${isRecentGateActivity(gate.lastSeen) ? "recent" : "idle"}`}>
+                      {isRecentGateActivity(gate.lastSeen) ? t("gateStatusRecent") : t("gateStatusIdle")}
+                    </div>
+                    <div className="gate-monitor-meta">
+                      <span>{t("gateLastSeen")}: {formatDate(gate.lastSeen, i18n.language)}</span>
+                      <span>{t("gateLastAction")}: {gate.lastGranted ? t("granted") : t("denied")} · {gate.lastDirection}</span>
+                    </div>
+                  </div>
+                ))}
+                {gateMonitors.length === 0 && <div className="empty">{t("gateNoActivity")}</div>}
               </div>
-              <div className="form-group"><label>{t("labelBookingId")}</label><input value={bookingId} onChange={(e) => setBookingId(e.target.value)} /></div>
-              <div className="form-group"><label>{t("labelPlateNumber")}</label><input value={plateNumber} onChange={(e) => setPlateNumber(e.target.value)} /></div>
-              <button className="btn btn-primary btn-block" onClick={issueQr}>{t("btnIssueQr")}</button>
-              <textarea value={issuedQr} readOnly rows={5} className="qr-textarea" placeholder={t("qrPlaceholder")} />
-              {issuedQr && (
-                <div className="qr-display">
-                  <p>{t("qrLabel")}</p>
-                  <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(issuedQr)}`} alt="QR Code" className="qr-img" />
-                </div>
-              )}
             </div>
             <div className="chart-card">
-              <h3>{t("gateScannerTitle")}</h3>
-              <textarea value={scanToken} onChange={(e) => setScanToken(e.target.value)} rows={5} className="qr-textarea" placeholder={t("scanPlaceholder")} />
-              <button className="btn btn-success btn-block" onClick={scanQr}>{t("btnScanQr")}</button>
-              <div className="gate-result">{gateStatus || t("scanReady")}</div>
-              <div className="gate-events">
-                <h4>{t("gateEvents")} ({gateEvents.length})</h4>
-                <div className="event-list">
-                  {gateEvents.slice(0, 15).map((e, i) => (
-                    <div key={`${e.ts}-${i}`} className={`event-item ${e.granted ? "granted" : "denied"}`}>
-                      <div><b>{e.granted ? t("granted") : t("denied")}</b> | {e.gateId} | {e.actor}</div>
-                      <div className="event-meta">{formatDate(e.ts, i18n.language)} | {e.role} | {e.direction}</div>
-                    </div>
-                  ))}
-                </div>
+              <h3>{t("gateDenialReasons")}</h3>
+              <div className="gate-reason-list">
+                {denialReasons.map((reason) => (
+                  <div key={reason.code} className="gate-reason-row">
+                    <span>{gateReasonLabel(reason.code)}</span>
+                    <b>{reason.count}</b>
+                  </div>
+                ))}
+                {denialReasons.length === 0 && <div className="empty">{t("gateNoDenials")}</div>}
               </div>
             </div>
           </div>
+
+          <div className="chart-card gate-activity-card">
+            <h3>{t("gateRecentActivity")}</h3>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>{t("gateThTime")}</th>
+                  <th>{t("gateThStatus")}</th>
+                  <th>{t("gateThGate")}</th>
+                  <th>{t("gateThScanner")}</th>
+                  <th>{t("gateThBooking")}</th>
+                  <th>{t("gateThDirection")}</th>
+                  <th>{t("gateThSource")}</th>
+                  <th>{t("gateThReason")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {gateEvents.slice(0, 15).map((e, i) => (
+                  <tr key={`${e.ts}-${i}`}>
+                    <td>{formatDate(e.ts, i18n.language)}</td>
+                    <td><span className={`gate-status-pill ${e.granted ? "granted" : "denied"}`}>{e.granted ? t("granted") : t("denied")}</span></td>
+                    <td>{e.gateId}</td>
+                    <td>{e.scannerId}</td>
+                    <td>{actorLabel(e.actor)}</td>
+                    <td>{e.direction}</td>
+                    <td>{e.source === "CHECKOUT" ? t("gateSourceCheckout") : t("gateSourceScanner")}</td>
+                    <td>{e.granted ? "-" : gateReasonLabel(e.reasonCode)}</td>
+                  </tr>
+                ))}
+                {gateEvents.length === 0 && <tr><td colSpan={8} className="empty">{t("gateNoActivity")}</td></tr>}
+              </tbody>
+            </table>
+          </div>
+
+          <details className="support-tools">
+            <summary>{t("gateSupportTools")}</summary>
+            <div className="chart-row support-tools-grid">
+              <div className="chart-card">
+                <h3>{t("qrIssueTitle")}</h3>
+                <div className="form-group">
+                  <label>{t("selectLot")}</label>
+                  <select
+                    value={selectedLotId}
+                    onChange={(e) => {
+                      const lotId = e.target.value;
+                      setSelectedLotId(lotId);
+                      const activeAtLot = bookings.filter((b) => String(b.parking_lot_id) === String(lotId) && b.payment_status === "PAID" && !b.ended_at);
+                      const firstActive = activeAtLot[0] || null;
+                      setBookingId(firstActive?.id ? String(firstActive.id) : "");
+                      setSelectedSupportPlate(firstActive?.plate_number || "");
+                      setPlateNumber(firstActive?.plate_number || "");
+                    }}
+                  >
+                    {lots.map((l) => <option key={l.id} value={l.id}>{l.name} ({l.id})</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>{t("labelPlateNumber")}</label>
+                  <select
+                    value={selectedSupportPlate}
+                    onChange={(e) => {
+                      const plate = e.target.value;
+                      setSelectedSupportPlate(plate);
+                      setPlateNumber(plate);
+                      const matched = bookings.find((b) => String(b.parking_lot_id) === String(selectedLotId) && b.payment_status === "PAID" && !b.ended_at && String(b.plate_number).toUpperCase() === String(plate).toUpperCase());
+                      setBookingId(matched?.id ? String(matched.id) : "");
+                    }}
+                  >
+                    <option value="">{t("selectPlatePlaceholder")}</option>
+                    {bookings
+                      .filter((b) => String(b.parking_lot_id) === String(selectedLotId) && b.payment_status === "PAID" && !b.ended_at)
+                      .map((b) => (
+                        <option key={b.id} value={b.plate_number}>{b.plate_number} — BK#{b.id}</option>
+                      ))}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>{t("labelBookingId")}</label>
+                  <input value={bookingId} readOnly placeholder={t("bookingIdAutoFilled")} />
+                </div>
+                <div className="support-qr-actions">
+                  <button type="button" className="btn btn-primary btn-block" onClick={issueEntryQr}>{t("btnIssueEntryQr")}</button>
+                  <button type="button" className="btn btn-outline-dark btn-block" onClick={issueExitQr}>{t("btnIssueExitQr")}</button>
+                </div>
+                <div className="support-qr-stack">
+                  <div className="support-qr-block">
+                    <p className="support-qr-title">{t("qrEntryTitle")}</p>
+                    <textarea value={entryQr} readOnly rows={4} className="qr-textarea" placeholder={t("qrPlaceholder")} />
+                    {entryQr && <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(entryQr)}`} alt="Entry QR Code" className="qr-img" />}
+                  </div>
+                  <div className="support-qr-block">
+                    <p className="support-qr-title">{t("qrExitTitle")}</p>
+                    <textarea value={exitQr} readOnly rows={4} className="qr-textarea" placeholder={t("qrPlaceholder")} />
+                    {exitQr && <img src={`https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${encodeURIComponent(exitQr)}`} alt="Exit QR Code" className="qr-img" />}
+                  </div>
+                </div>
+              </div>
+              <div className="chart-card">
+                <h3>{t("gateScannerTitle")}</h3>
+                <textarea value={scanToken} onChange={(e) => setScanToken(e.target.value)} rows={5} className="qr-textarea" placeholder={t("scanPlaceholder")} />
+                <div className="support-qr-actions" style={{ marginTop: 8 }}>
+                  <button type="button" className="btn btn-success btn-block" onClick={scanQr}>{t("btnScanEntryQr")}</button>
+                  <button type="button" className="btn btn-outline-dark btn-block" onClick={scanQr}>{t("btnScanExitQr")}</button>
+                </div>
+                <div className="gate-result">{gateStatus || t("scanReady")}</div>
+              </div>
+            </div>
+          </details>
         </div>
       )}
     </div>

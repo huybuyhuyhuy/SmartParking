@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+﻿import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import useWebSocket from "./useWebSocket";
 import LangSwitcher from "./components/LangSwitcher.jsx";
+import ParkingLawPage from "./components/ParkingLawPage.jsx";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "./App.css";
@@ -59,6 +60,7 @@ export default function App() {
   const polygonLayer = useRef(null);
   const userMarkerRef = useRef(null);
   const parkingLayer = useRef(null);
+  const parkingMarkerRefs = useRef(new Map());
 
   const [showBooking, setShowBooking] = useState(false);
   const [selectedLot, setSelectedLot] = useState(null);
@@ -101,11 +103,8 @@ export default function App() {
   const [travelMode, setTravelMode] = useState("walking");
 
   const [vehicleType, setVehicleType] = useState("CAR");
-  const [warnings, setWarnings] = useState([]);
   const [userLocation, setUserLocation] = useState(null);
-  const [showTrafficPanel, setShowTrafficPanel] = useState(false);
-  const [locationRules, setLocationRules] = useState([]);
-  const [nearbyParking, setNearbyParking] = useState([]);
+  const [showParkingLaw, setShowParkingLaw] = useState(false);
 
   useEffect(() => {
     document.title = t("appTitle");
@@ -158,7 +157,7 @@ export default function App() {
   }, []);
 
   const loadLots = useCallback(() =>
-    fetch(`${API_BASE}/api/parking-lots`)
+    fetch(`${API_BASE}/api/parking-lots`, { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         setLots(Array.isArray(data) ? data : []);
@@ -189,133 +188,116 @@ export default function App() {
       });
       setLastUpdated(new Date().toLocaleTimeString(i18n.language === "vi" ? "vi-VN" : "en-US"));
     }
-  }, [i18n.language]);
-
-  const getZoneStyle = (feature) => {
-    const type = feature.properties.restriction_type;
-    const timeRanges = feature.properties.time_ranges || [];
-    const nowRestricted = timeRanges.some((r) => isInTimeRange(r));
-    if (type === "PARKING") {
-      return { color: "#22c55e", weight: 3, opacity: 0.9, fillColor: "#22c55e", fillOpacity: 0.2 };
+    if (data.type === "parking_lot_updated" || data.type === "parking_lot_deleted") {
+      loadLots();
     }
-    if (type === "ABSOLUTE_BAN") {
-      return { color: "#ef4444", weight: 6, opacity: 0.85, dashArray: "" };
-    }
-    if (type === "TIME_RESTRICTED" || type === "VEHICLE_RESTRICTED") {
-      return {
-        color: nowRestricted ? "#ef4444" : "#f59e0b",
-        weight: nowRestricted ? 6 : 4,
-        opacity: nowRestricted ? 0.9 : 0.7,
-        dashArray: nowRestricted ? "" : "8, 6"
-      };
-    }
-    return {
-      color: nowRestricted ? "#ef4444" : "#f59e0b",
-      weight: 4,
-      opacity: 0.7,
-      dashArray: "10, 10"
-    };
-  };
-
-  const getZoneLabel = (feature) => {
-    const type = feature.properties.restriction_type;
-    const timeRanges = feature.properties.time_ranges || [];
-    const nowRestricted = timeRanges.some((r) => isInTimeRange(r));
-    if (type === "PARKING") return t("zoneLabelParking");
-    if (type === "ABSOLUTE_BAN") return t("zoneLabelAbsoluteBan");
-    if ((type === "TIME_RESTRICTED" || type === "VEHICLE_RESTRICTED") && nowRestricted) return t("zoneLabelActiveBan");
-    if (type === "TIME_RESTRICTED") return t("zoneLabelTimeBan");
-    if (type === "VEHICLE_RESTRICTED") return t("zoneLabelVehicleRestricted");
-    return t("zoneLabelConditional");
-  };
-
-  const getZoneLabelColor = (feature) => {
-    const type = feature.properties.restriction_type;
-    const timeRanges = feature.properties.time_ranges || [];
-    const nowRestricted = timeRanges.some((r) => isInTimeRange(r));
-    if (type === "PARKING") return "#16a34a";
-    if (type === "ABSOLUTE_BAN" || ((type === "TIME_RESTRICTED" || type === "VEHICLE_RESTRICTED") && nowRestricted)) return "#dc2626";
-    return "#d97706";
-  };
+  }, [i18n.language, loadLots]);
 
   const vehicleTypeLabelFn = (types) => {
     if (!types || types.length === 0) return t("vehicleTypesAll");
-    const map = { CAR: t("vehicleTypeCar"), MOTORBIKE: t("vehicleTypeMotorbike"), TRUCK: t("vehicleTypeTruck"), BUS: t("vehicleTypeBus") };
+    const map = {
+      CAR: t("vehicleTypeCar"),
+      MOTORBIKE: t("vehicleTypeMotorbike"),
+      BICYCLE: t("vehicleTypeBicycle"),
+      TRUCK: t("vehicleTypeTruck"),
+      BUS: t("vehicleTypeBus")
+    };
     return types.map((vt) => map[vt] || vt).join(", ");
   };
 
-  const renderRestrictedZones = (features) => {
-    if (!restrictedLayer.current) return;
-    restrictedLayer.current.clearLayers();
-    features.forEach((feature) => {
-      if (feature.properties.restriction_type === "PARKING") return;
-      if (feature.geometry.type === "Point") return;
-      const timeRanges = feature.properties.time_ranges || [];
-      const nowRestricted = timeRanges.some((r) => isInTimeRange(r));
-      const style = getZoneStyle(feature);
-      const label = getZoneLabel(feature);
-      const labelColor = getZoneLabelColor(feature);
-      const vehicleTypes = feature.properties.vehicle_types || [];
-
-      const layer = L.geoJSON(feature, {
-        style,
-        onEachFeature: (_f, l) => {
-          l.bindPopup(`
-            <div class="zone-popup">
-              <div class="zone-popup-header" style="border-left: 4px solid ${labelColor}">
-                <span class="zone-badge" style="background:${labelColor};color:white">${label}</span>
-                <b class="zone-name">${feature.properties.name}</b>
-              </div>
-              ${nowRestricted ? `<div class="zone-alert-active">${t("zoneAlertActive")}</div>` : ''}
-              <p class="zone-desc">${feature.properties.description}</p>
-              <div class="zone-details">
-                <div class="zone-detail-row"><span>${t("zoneRule")}:</span><span>${feature.properties.rules}</span></div>
-                <div class="zone-detail-row"><span>${t("zoneVehicles")}:</span><span>${vehicleTypeLabelFn(vehicleTypes)}</span></div>
-                ${timeRanges.length > 0 ? `<div class="zone-detail-row"><span>${t("zoneBanHours")}:</span><span>${timeRanges.join(", ")}</span></div>` : ""}
-                ${feature.properties.fine ? `<div class="zone-detail-row"><span>${t("zoneFine")}:</span><span class="fine">${feature.properties.fine}</span></div>` : ""}
-                <div class="zone-detail-row"><span>${t("zoneArea")}:</span><span>${feature.properties.area || t("zoneCenter")}</span></div>
-              </div>
-            </div>
-          `);
-        }
-      });
-      if (feature.geometry.type === "Polygon") {
-        layer.setStyle({ fillColor: style.color, fillOpacity: 0.12, weight: style.weight });
-      }
-      layer.addTo(restrictedLayer.current);
-    });
+  const getParkingFeeMeta = (feeType) => {
+    if (feeType === "free") return { label: t("parkingFeeFree"), className: "free" };
+    if (feeType === "listed") return { label: t("parkingFeeListed"), className: "listed" };
+    if (feeType === "paid") return { label: t("parkingFeePaid"), className: "paid" };
+    return null;
   };
 
+  const parkingFeeSortRank = (feeType) => {
+    if (feeType === "paid") return 0;
+    if (feeType === "listed") return 1;
+    if (feeType === "free") return 2;
+    return 3;
+  };
+
+  const getParkingSearchText = (feature) => {
+    const props = feature?.properties || {};
+    return [
+      props.name,
+      props.location_text,
+      props.area,
+      props.description,
+      props.note,
+      props.price,
+      props.motorbike_price,
+      props.bicycle_price,
+      props.car_price,
+      ...(props.vehicle_types || [])
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+  };
+
+  const getParkingPoint = (feature) => {
+    if (feature?.geometry?.type !== "Point") return null;
+    const [lng, lat] = feature.geometry.coordinates || [];
+    if (!Number.isFinite(Number(lat)) || !Number.isFinite(Number(lng))) return null;
+    return { lat: Number(lat), lng: Number(lng) };
+  };
+
+  const renderRestrictedZones = () => {
+    if (!restrictedLayer.current) return;
+    // Clear the layer and intentionally skip drawing forbidden-road overlays.
+    restrictedLayer.current.clearLayers();
+  };
   const renderParkingPoints = (features) => {
     if (!parkingLayer.current) return;
     parkingLayer.current.clearLayers();
+    parkingMarkerRefs.current.clear();
     features.forEach((feature) => {
       if (feature.properties.restriction_type !== "PARKING") return;
-      if (feature.geometry.type !== "Point") return;
-      const [lng, lat] = feature.geometry.coordinates;
+      if (feature.properties.bookable_lot_id) return;
+      const point = getParkingPoint(feature);
+      if (!point) return;
+      const { lat, lng } = point;
+      const props = feature.properties;
       const icon = L.divIcon({
         className: "parking-icon",
         html: '<div class="parking-marker">P</div>',
         iconSize: [32, 32],
         iconAnchor: [16, 16]
       });
-      const parkingType = feature.properties.parking_type === "mall" ? t("parkingTypeMall") : t("parkingTypePublic");
-      L.marker([lat, lng], { icon })
+      const parkingType = props.parking_type === "mall" ? t("parkingTypeMall") : t("parkingTypePublic");
+      const feeMeta = getParkingFeeMeta(props.fee_type);
+      const vehicleLabel = props.vehicle_types?.length
+        ? vehicleTypeLabelFn(props.vehicle_types)
+        : t("parkingVehicleTypesUnknown");
+      const marker = L.marker([lat, lng], { icon });
+      marker
         .bindPopup(`
           <div class="zone-popup">
             <div class="zone-popup-header" style="border-left: 4px solid #16a34a">
               <span class="zone-badge" style="background:#16a34a;color:white">${t("zoneLabelParking")}</span>
-              <b class="zone-name">${feature.properties.name}</b>
+              <b class="zone-name">${props.name}</b>
             </div>
-            <p class="zone-desc">${feature.properties.description}</p>
+            ${props.description ? `<p class="zone-desc">${props.description}</p>` : ""}
             <div class="zone-details">
-              <div class="zone-detail-row"><span>${t("lotPrice")}:</span><span class="fine">${feature.properties.price || t("parkingPriceContact")}</span></div>
+              ${feeMeta ? `<div class="zone-detail-row"><span>${t("parkingFeeType")}:</span><span class="parking-fee-badge ${feeMeta.className}">${feeMeta.label}</span></div>` : ""}
+              ${props.location_text || props.area ? `<div class="zone-detail-row"><span>${t("parkingLocation")}:</span><span>${props.location_text || props.area}</span></div>` : ""}
+              <div class="zone-detail-row"><span>${t("zoneVehicles")}:</span><span>${vehicleLabel}</span></div>
+              ${props.motorbike_price ? `<div class="zone-detail-row"><span>${t("parkingMotorbikePrice")}:</span><span>${props.motorbike_price}</span></div>` : ""}
+              ${props.bicycle_price ? `<div class="zone-detail-row"><span>${t("parkingBicyclePrice")}:</span><span>${props.bicycle_price}</span></div>` : ""}
+              ${props.car_price ? `<div class="zone-detail-row"><span>${t("parkingCarPrice")}:</span><span>${props.car_price}</span></div>` : ""}
+              ${!props.motorbike_price && !props.bicycle_price && !props.car_price ? `<div class="zone-detail-row"><span>${t("lotPrice")}:</span><span class="fine">${props.price || t("parkingPriceContact")}</span></div>` : ""}
               <div class="zone-detail-row"><span>${i18n.language === "en" ? "Type" : "Loại"}:</span><span>${parkingType}</span></div>
+              ${props.note ? `<div class="zone-detail-row"><span>${t("parkingNote")}:</span><span>${props.note}</span></div>` : ""}
+              ${props.map_note ? `<div class="zone-detail-row"><span>${t("parkingMapPoint")}:</span><span>${props.map_note}</span></div>` : ""}
             </div>
             <button class="popup-nav-btn" onclick="window.__openDirections(${lat},${lng})">${t("btnDirectionToHere")}</button>
           </div>
         `)
         .addTo(parkingLayer.current);
+      parkingMarkerRefs.current.set(props.id, marker);
     });
   };
 
@@ -331,22 +313,59 @@ export default function App() {
   useEffect(() => {
     if (restrictedZones.length > 0) {
       renderRestrictedZones(restrictedZones);
+      renderParkingPoints(restrictedZones);
     }
-  }, [vehicleType, t]);
+  }, [restrictedZones, vehicleType, t]);
 
   const formatCurrency = (n) =>
     new Intl.NumberFormat(i18n.language, { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(n || 0);
 
-  const activeBookingLotIds = useMemo(
-    () => new Set(userBookings.filter((b) => b.payment_status === "PAID" && !b.ended_at).map((b) => b.parking_lot_id)),
+  const activeBookingsByLotId = useMemo(
+    () => new Map(
+      userBookings
+        .filter((b) => b.payment_status === "PAID" && !b.ended_at)
+        .map((b) => [b.parking_lot_id, b])
+    ),
     [userBookings]
   );
+  const activeBookingLotIds = useMemo(
+    () => new Set(activeBookingsByLotId.keys()),
+    [activeBookingsByLotId]
+  );
+  const filteredParkingDirectory = useMemo(() => {
+    const query = filters.search.trim().toLowerCase();
+    return restrictedZones
+      .filter((feature) => feature?.properties?.restriction_type === "PARKING")
+      .filter((feature) => !feature?.properties?.bookable_lot_id)
+      .filter((feature) => !query || getParkingSearchText(feature).includes(query))
+      .sort((a, b) => {
+        const rankDiff = parkingFeeSortRank(a.properties?.fee_type) - parkingFeeSortRank(b.properties?.fee_type);
+        if (rankDiff !== 0) return rankDiff;
+        return String(a.properties?.name || "").localeCompare(String(b.properties?.name || ""), i18n.language);
+      });
+  }, [restrictedZones, filters.search]);
+
+  const focusParkingFeature = useCallback((featureId) => {
+    if (!map.current) return;
+    const marker = parkingMarkerRefs.current.get(featureId);
+    if (marker) {
+      map.current.setView(marker.getLatLng(), 17);
+      marker.openPopup();
+      return;
+    }
+    const feature = restrictedZones.find((item) => item?.properties?.id === featureId);
+    const point = getParkingPoint(feature);
+    if (!point) return;
+    map.current.setView([point.lat, point.lng], 17);
+  }, [restrictedZones]);
 
   useEffect(() => {
     if (!map.current || !layerGroup.current) return;
     layerGroup.current.clearLayers();
 
     const filtered = lots.filter((lot) => {
+      const hasActiveBooking = activeBookingLotIds.has(lot.id);
+      if (hasActiveBooking) return true;
       if (filters.availableOnly && lot.availableSlots <= 0) return false;
       if (filters.evOnly && !lot.evSupported) return false;
       if (filters.maxPrice > 0 && lot.pricePerHour > filters.maxPrice) return false;
@@ -358,7 +377,8 @@ export default function App() {
     });
 
     for (const lot of filtered) {
-      const color = lot.availableSlots > 0 ? "#22c55e" : "#ef4444";
+      const hasActiveBooking = activeBookingLotIds.has(lot.id);
+      const color = hasActiveBooking ? "#2563eb" : lot.availableSlots > 0 ? "#22c55e" : "#ef4444";
       const availableText = lot.availableSlots > 0
         ? `${t("mapPopupAvailable")}: ${lot.availableSlots}`
         : t("mapPopupFull");
@@ -376,9 +396,9 @@ export default function App() {
           ${t("lotPrice")}: ${formatCurrency(lot.pricePerHour)}/h<br/>
           ${lot.evSupported ? `<span style="color:#2563eb;font-size:11px">${t("mapPopupEv")}</span><br/>` : ''}
           <button onclick="window.__openBooking('${lot.id}')" style="margin-top:8px;width:100%;background:#2563eb;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer">
-            ${activeBookingLotIds.has(lot.id) ? t("mapPopupViewQr") : t("mapPopupBookNow")}
+            ${hasActiveBooking ? t("mapPopupManageBooking") : t("mapPopupBookNow")}
           </button>
-          ${lot.availableSlots > 0 ? `<button onclick="window.__openDirections(${lot.lat},${lot.lng})" style="margin-top:4px;width:100%;background:#fff;color:#2563eb;border:1px solid #2563eb;padding:5px;border-radius:4px;cursor:pointer;font-size:12px">
+          ${(lot.availableSlots > 0 || hasActiveBooking) ? `<button onclick="window.__openDirections(${lot.lat},${lot.lng})" style="margin-top:4px;width:100%;background:#fff;color:#2563eb;border:1px solid #2563eb;padding:5px;border-radius:4px;cursor:pointer;font-size:12px">
             ${t("mapPopupDirections")}
           </button>` : ''}
         </div>
@@ -432,83 +452,9 @@ export default function App() {
     ).addTo(map.current);
   }, [lots, t, i18n.language]);
 
-  const checkProximity = useCallback((lat, lng) => {
-    if (!restrictedZones.length) return;
-    const userPos = { lat, lng };
-    const newWarnings = [];
-    const matchingRules = [];
-
-    for (const zone of restrictedZones) {
-      const props = zone.properties;
-      if (props.restriction_type === "PARKING") continue;
-
-      let minDist = Infinity;
-      const coords = zone.geometry.type === "Polygon"
-        ? zone.geometry.coordinates[0]
-        : zone.geometry.coordinates;
-
-      for (const [clng, clat] of coords) {
-        const dist = haversineMeters(userPos, { lat: clat, lng: clng });
-        if (dist < minDist) minDist = dist;
-      }
-
-      const isRelevant = props.vehicle_types
-        ? props.vehicle_types.includes(vehicleType) || vehicleType === "ALL"
-        : true;
-
-      if (minDist < 100 && isRelevant) {
-        const timeRanges = props.time_ranges || [];
-        const nowRestricted = timeRanges.some((r) => isInTimeRange(r));
-        const isActiveBan = props.restriction_type === "ABSOLUTE_BAN" || nowRestricted;
-
-        matchingRules.push({ ...props, distance: Math.round(minDist), isActiveBan });
-
-        if (isActiveBan) {
-          newWarnings.push({
-            id: props.id,
-            type: "danger",
-            msg: nowRestricted
-              ? `ĐANG TRONG GIỜ CẤM: ${props.name} - ${props.description}`
-              : `VÀO KHU CẤM: ${props.name} - ${props.description}`,
-            detail: props.rules,
-            fine: props.fine
-          });
-        } else if (minDist < 50) {
-          newWarnings.push({
-            id: props.id,
-            type: "warning",
-            msg: `Sắp vào khu hạn chế: ${props.name}`,
-            detail: props.rules,
-            fine: props.fine
-          });
-        }
-      }
-    }
-
-    if (newWarnings.length > 0) {
-      setWarnings((prev) => {
-        const existingIds = new Set(prev.map((w) => w.id));
-        const fresh = newWarnings.filter((w) => !existingIds.has(w.id));
-        return [...prev, ...fresh].slice(-5);
-      });
-    }
-
-    // Score and rank nearby lots from live data
-    const maxPrice = Math.max(...lots.map((l) => l.pricePerHour || 0), 1);
-    const speed = TRAVEL_SPEEDS[travelMode];
-    const ranked = lots
-      .filter((l) => l.availableSlots > 0)
-      .map((lot) => {
-        const s = scoreParkingLot(lot, userPos, maxPrice, speed);
-        return { ...lot, _score: s.score, _distance: s.distance, _travelMin: s.travelMin };
-      })
-      .filter((l) => l._distance < 2000)
-      .sort((a, b) => b._score - a._score)
-      .slice(0, 5);
-
-    setLocationRules(matchingRules);
-    setNearbyParking(ranked);
-  }, [restrictedZones, vehicleType, lots, travelMode]);
+  const checkProximity = useCallback(() => {
+    // Parking-law warnings were moved off the map to keep the user view clean.
+  }, []);
 
   useEffect(() => {
     window.__openBooking = (lotId) => {
@@ -549,10 +495,6 @@ export default function App() {
       setUserLocation({ lat, lng });
       checkProximity(lat, lng);
     });
-  };
-
-  const dismissWarning = (id) => {
-    setWarnings((prev) => prev.filter((w) => w.id !== id));
   };
 
   const requireAuth = () => {
@@ -628,8 +570,8 @@ export default function App() {
       setBookingStep("payment");
       const confirmRes = await fetch(`${API_BASE}/api/payments/confirm`, {
         method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ bookingId: data.bookingId, provider: "DIRECT", status: "PAID" })
+        headers: { "content-type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ bookingId: data.bookingId, provider: "DIRECT" })
       });
       const confirmData = await confirmRes.json();
       if (confirmRes.ok) {
@@ -731,11 +673,17 @@ export default function App() {
             ) : (() => {
               const maxPrice = Math.max(...lots.map((l) => l.pricePerHour || 0), 1);
               const speed = TRAVEL_SPEEDS[travelMode];
+              const decorateLot = (lot) => {
+                const s = userLocation ? scoreParkingLot(lot, userLocation, maxPrice, speed) : { score: 0, distance: Infinity, travelMin: 0 };
+                return { ...lot, _score: s.score, _distance: s.distance, _travelMin: s.travelMin };
+              };
+              const activeLots = lots
+                .filter((l) => activeBookingLotIds.has(l.id))
+                .map(decorateLot);
               const scored = lots
-                .filter((l) => l.availableSlots > 0)
+                .filter((l) => l.availableSlots > 0 && !activeBookingLotIds.has(l.id))
                 .map((lot) => {
-                  const s = userLocation ? scoreParkingLot(lot, userLocation, maxPrice, speed) : { score: 0, distance: Infinity, travelMin: 0 };
-                  return { ...lot, _score: s.score, _distance: s.distance, _travelMin: s.travelMin };
+                  return decorateLot(lot);
                 })
                 .sort((a, b) => {
                   if (sortMode === "score" && userLocation) return b._score - a._score;
@@ -743,76 +691,150 @@ export default function App() {
                   if (sortMode === "price") return (a.pricePerHour || 0) - (b.pricePerHour || 0);
                   return (b.availableSlots / (b.capacity || 1)) - (a.availableSlots / (a.capacity || 1));
                 });
-              if (scored.length === 0) return <p className="lot-list-empty">{t("lotListEmpty")}</p>;
-              return scored.map((lot, index) => (
-                <div key={lot.id} className="lot-card">
-                  <div className="lot-card-info">
-                    <div className="lot-card-name">{lot.name}</div>
-                    {userLocation && index === 0 && (
-                      <div className="lot-card-recommended">{t("recommendedBadge")}</div>
-                    )}
-                    <div className="lot-card-meta">
-                      <span className="lot-card-slots">{t("lotSlots", { count: `${lot.availableSlots}/${lot.capacity}` })}</span>
-                      <span className="lot-card-price">{formatCurrency(lot.pricePerHour)}/h</span>
-                    </div>
-                    <div className="lot-card-extra">
-                      {userLocation && (
-                        <>
-                          <span className="lot-card-distance">{lot._distance < 1000 ? `${Math.round(lot._distance)}m` : `${(lot._distance / 1000).toFixed(1)}km`}</span>
-                          <span className="lot-card-walk">{t("travelTime", { mode: t(`travelMode_${travelMode}`), minutes: lot._travelMin })}</span>
-                        </>
-                      )}
-                      {lot.evSupported && <span className="lot-card-ev">{t("lotEv")}</span>}
-                    </div>
-                    {userLocation && lot._score > 0 && (
-                      <div className="lot-score-bar">
-                        <div className="lot-score-fill" style={{ width: `${(lot._score * 100).toFixed(0)}%` }} />
-                        <span className="lot-score-text">{t("scoreLabel")}: {(lot._score * 100).toFixed(0)}</span>
+              const visibleLots = [...activeLots, ...scored];
+              return (
+                <>
+                  {visibleLots.length === 0 ? (
+                    <p className="lot-list-empty">{t("lotListEmpty")}</p>
+                  ) : visibleLots.map((lot, index) => {
+                    const activeBooking = activeBookingsByLotId.get(lot.id);
+                    const isActiveBookingLot = Boolean(activeBooking);
+                    const isTopRecommendation = !isActiveBookingLot && userLocation && index === activeLots.length;
+                    return (
+                      <div key={lot.id} className={`lot-card ${isActiveBookingLot ? "active-booking" : ""}`}>
+                        <div className="lot-card-info">
+                          <div className="lot-card-name">{lot.name}</div>
+                          {isActiveBookingLot && (
+                            <div className="lot-card-active-booking">{t("activeBookingBadge")}</div>
+                          )}
+                          {isTopRecommendation && (
+                            <div className="lot-card-recommended">{t("recommendedBadge")}</div>
+                          )}
+                          <div className="lot-card-meta">
+                            <span className={`lot-card-slots ${lot.availableSlots <= 0 ? "full" : ""}`}>
+                              {t("lotSlots", { count: `${lot.availableSlots}/${lot.capacity}` })}
+                            </span>
+                            <span className="lot-card-price">{formatCurrency(lot.pricePerHour)}/h</span>
+                          </div>
+                          <div className="lot-card-extra">
+                            {userLocation && (
+                              <>
+                                <span className="lot-card-distance">{lot._distance < 1000 ? `${Math.round(lot._distance)}m` : `${(lot._distance / 1000).toFixed(1)}km`}</span>
+                                <span className="lot-card-walk">{t("travelTime", { mode: t(`travelMode_${travelMode}`), minutes: lot._travelMin })}</span>
+                              </>
+                            )}
+                            {lot.evSupported && <span className="lot-card-ev">{t("lotEv")}</span>}
+                          </div>
+                          {userLocation && lot._score > 0 && (
+                            <div className="lot-score-bar">
+                              <div className="lot-score-fill" style={{ width: `${(lot._score * 100).toFixed(0)}%` }} />
+                              <span className="lot-score-text">{t("scoreLabel")}: {(lot._score * 100).toFixed(0)}</span>
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          className="btn btn-primary btn-sm"
+                          onClick={() => {
+                            const existing = activeBookingsByLotId.get(lot.id);
+                            if (existing) {
+                              setSelectedLot(lot);
+                              setExistingBooking(existing);
+                              setCheckoutData(null);
+                              setCheckoutLoading(false);
+                              setBookingStep("existing");
+                              setShowBooking(true);
+                            } else {
+                              setSelectedLot(lot);
+                              setBookingForm({ plateNumber: "", phoneNumber: "", estimatedHours: 2, bookingVehicleType: "CAR", isScheduled: false, startDate: defaultStartDate(), startTime: defaultStartTime() });
+                              setBookingResult(null);
+                              setExistingBooking(null);
+                              setBookingStep("form");
+                              setShowBooking(true);
+                            }
+                          }}
+                        >
+                          {isActiveBookingLot ? t("btnManageBooking") : t("btnBookNow")}
+                        </button>
                       </div>
-                    )}
+                    );
+                  })}
+
+                  <div className="parking-directory-section">
+                    <div className="parking-directory-title">
+                      {t("parkingDirectoryTitle", { count: filteredParkingDirectory.length })}
+                    </div>
+                    {filteredParkingDirectory.length === 0 ? (
+                      <p className="parking-directory-empty">{t("parkingDirectoryEmpty")}</p>
+                    ) : filteredParkingDirectory.map((feature) => {
+                      const props = feature.properties;
+                      const feeMeta = getParkingFeeMeta(props.fee_type);
+                      const vehicleLabel = props.vehicle_types?.length
+                        ? vehicleTypeLabelFn(props.vehicle_types)
+                        : t("parkingVehicleTypesUnknown");
+                      const point = getParkingPoint(feature);
+                      return (
+                        <div key={props.id} className="parking-directory-card">
+                          <div className="parking-directory-header">
+                            <div className="parking-directory-name">{props.name}</div>
+                            {feeMeta && (
+                              <span className={`parking-fee-badge ${feeMeta.className}`}>{feeMeta.label}</span>
+                            )}
+                          </div>
+                          {(props.location_text || props.area) && (
+                            <div className="parking-directory-row">
+                              <span>{t("parkingLocation")}:</span>
+                              <b>{props.location_text || props.area}</b>
+                            </div>
+                          )}
+                          <div className="parking-directory-row">
+                            <span>{t("zoneVehicles")}:</span>
+                            <b>{vehicleLabel}</b>
+                          </div>
+                          {props.motorbike_price && (
+                            <div className="parking-directory-row">
+                              <span>{t("parkingMotorbikePrice")}:</span>
+                              <b>{props.motorbike_price}</b>
+                            </div>
+                          )}
+                          {props.bicycle_price && (
+                            <div className="parking-directory-row">
+                              <span>{t("parkingBicyclePrice")}:</span>
+                              <b>{props.bicycle_price}</b>
+                            </div>
+                          )}
+                          {props.car_price && (
+                            <div className="parking-directory-row">
+                              <span>{t("parkingCarPrice")}:</span>
+                              <b>{props.car_price}</b>
+                            </div>
+                          )}
+                          {!props.motorbike_price && !props.bicycle_price && !props.car_price && props.price && (
+                            <div className="parking-directory-row">
+                              <span>{t("lotPrice")}:</span>
+                              <b>{props.price}</b>
+                            </div>
+                          )}
+                          {props.note && <div className="parking-directory-note">{props.note}</div>}
+                          {props.map_note && <div className="parking-directory-note map-note">{props.map_note}</div>}
+                          {point && (
+                            <div className="parking-directory-actions">
+                              <button className="btn btn-sm btn-outline-dark" onClick={() => focusParkingFeature(props.id)}>
+                                {t("btnViewOnMap")}
+                              </button>
+                              <button className="btn btn-sm btn-primary" onClick={() => window.__openDirections(point.lat, point.lng)}>
+                                {t("btnDirections")}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
-                  <button
-                    className="btn btn-primary btn-sm"
-                    onClick={() => {
-                      const existing = userBookings.find((b) => b.parking_lot_id === lot.id && b.payment_status === "PAID" && !b.ended_at);
-                      if (existing) {
-                        setSelectedLot(lot);
-                        setExistingBooking(existing);
-                        setCheckoutData(null);
-                        setCheckoutLoading(false);
-                        setBookingStep("existing");
-                        setShowBooking(true);
-                      } else {
-                        setSelectedLot(lot);
-                        setBookingForm({ plateNumber: "", phoneNumber: "", estimatedHours: 2, bookingVehicleType: "CAR", isScheduled: false, startDate: defaultStartDate(), startTime: defaultStartTime() });
-                        setBookingResult(null);
-                        setExistingBooking(null);
-                        setBookingStep("form");
-                        setShowBooking(true);
-                      }
-                    }}
-                  >
-                    {userBookings.some((b) => b.parking_lot_id === lot.id && b.payment_status === "PAID" && !b.ended_at) ? t("btnViewQr") : t("btnBookNow")}
-                  </button>
-                </div>
-              ));
+                </>
+              );
             })()}
           </div>
         )}
-      </div>
-
-      <div className="warning-toast-container">
-        {warnings.map((w) => (
-          <div key={w.id} className={`warning-toast ${w.type}`}>
-            <div className="warning-toast-header">
-              <span className="warning-toast-icon">{w.type === "danger" ? t("warningDanger") : t("warningInfo")}</span>
-              <span className="warning-toast-msg">{w.msg}</span>
-              <button className="warning-toast-close" onClick={() => dismissWarning(w.id)}>x</button>
-            </div>
-            {w.detail && <div className="warning-toast-detail">{w.detail}</div>}
-            {w.fine && <div className="warning-toast-fine">{t("warningFine")}: {w.fine}</div>}
-          </div>
-        ))}
       </div>
 
       <div className="top-header">
@@ -835,14 +857,7 @@ export default function App() {
           </select>
           <button className="btn btn-sm btn-outline" onClick={() => setShowFilters(!showFilters)}>{t("btnFilter")}</button>
           <button className="btn btn-sm btn-outline" onClick={locateUser}>{t("btnMyLocation")}</button>
-          <button className="btn btn-sm btn-outline" onClick={() => {
-            if (userLocation) {
-              checkProximity(userLocation.lat, userLocation.lng);
-              setShowTrafficPanel(!showTrafficPanel);
-            } else {
-              locateUser();
-            }
-          }}>{t("btnTrafficLaw")}</button>
+          <button className="btn btn-sm btn-outline" onClick={() => setShowParkingLaw(true)}>{t("btnTrafficLaw")}</button>
           <button className="btn btn-sm btn-outline" onClick={() => {
             if (!requireAuth()) return;
             loadUserBookings();
@@ -882,6 +897,7 @@ export default function App() {
             {t("filterEv")}
           </label>
           <span className="filter-count">{t("filterCount", { count: lots.filter((l) => {
+            if (activeBookingLotIds.has(l.id)) return true;
             if (filters.availableOnly && l.availableSlots <= 0) return false;
             if (filters.evOnly && !l.evSupported) return false;
             if (filters.maxPrice > 0 && l.pricePerHour > filters.maxPrice) return false;
@@ -891,78 +907,8 @@ export default function App() {
         </div>
       )}
 
-      {showTrafficPanel && (
-        <div className="traffic-panel">
-          <div className="traffic-panel-header">
-            <h3>{t("trafficPanelTitle")}</h3>
-            <button className="modal-close" onClick={() => setShowTrafficPanel(false)}>x</button>
-          </div>
-          <div className="traffic-panel-body">
-            {!userLocation ? (
-              <p className="empty-text">{t("trafficNoLocation")}</p>
-            ) : locationRules.length === 0 ? (
-              <p className="empty-text" style={{ color: "#16a34a" }}>{t("trafficAllClear")}</p>
-            ) : (
-              <>
-                <p className="traffic-location">{t("trafficNearbyAreas", { count: locationRules.length })}</p>
-                {locationRules.map((rule) => (
-                  <div key={rule.id} className={`traffic-rule-item ${rule.isActiveBan ? "active-ban" : ""}`}>
-                    <div className="traffic-rule-header">
-                      <span className={`traffic-rule-badge ${rule.isActiveBan ? "danger" : "warning"}`}>
-                        {rule.isActiveBan ? t("trafficActiveBan") : t("trafficRestricted")}
-                      </span>
-                      <b>{rule.name}</b>
-                      <span className="traffic-distance">{t("trafficDistance", { distance: rule.distance })}</span>
-                    </div>
-                    <p className="traffic-rule-desc">{rule.description}</p>
-                    <div className="traffic-rule-meta">
-                      <span>{t("trafficRule")}: {rule.rules}</span>
-                      {rule.fine && <span className="traffic-fine">{t("trafficFineLabel")}: {rule.fine}</span>}
-                    </div>
-                  </div>
-                ))}
-              </>
-            )}
-
-            {nearbyParking.length > 0 && (
-              <div className="nearby-parking-section">
-                <h4>{t("nearbyParkingTitle")}</h4>
-                {nearbyParking.map((p) => (
-                  <div key={p.id} className="parking-suggestion">
-                    <div className="parking-suggestion-header">
-                      <span className="parking-icon-small">P</span>
-                      <div>
-                        <b>{p.name}</b>
-                        <span className="parking-distance">{t("trafficDistance", { distance: Math.round(p._distance) })}</span>
-                      </div>
-                      {p._score > 0 && (
-                        <span className="parking-score-badge" title={t("scoreLabel")}>{t("scoreLabel")}: {(p._score * 100).toFixed(0)}</span>
-                      )}
-                    </div>
-                    <div className="parking-suggestion-info">
-                      <span>{t("lotPrice")}: {formatCurrency(p.pricePerHour)}/h</span>
-                      <span>{t("lotAvailableSlots", { available: p.availableSlots, total: p.capacity })}</span>
-                      {p._travelMin > 0 && <span>{t("travelTime", { mode: t(`travelMode_${travelMode}`), minutes: p._travelMin })}</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="traffic-general-rules">
-              <h4>{t("generalRulesTitle")}</h4>
-              <ul>
-                <li>{t("rule1")}</li>
-                <li>{t("rule2")}</li>
-                <li>{t("rule3")}</li>
-                <li>{t("rule4")}</li>
-                <li>{t("rule5")}</li>
-                <li className="rule-fine">{t("ruleFineCar")}</li>
-                <li className="rule-fine">{t("ruleFineMotorbike")}</li>
-              </ul>
-            </div>
-          </div>
-        </div>
+      {showParkingLaw && (
+        <ParkingLawPage onClose={() => setShowParkingLaw(false)} />
       )}
 
       {showBooking && selectedLot && (
@@ -1094,6 +1040,12 @@ export default function App() {
                         <div className="eb-row"><span>{t("checkoutEstimated")}:</span> <b>{checkoutData.estimatedHours} {i18n.language === "en" ? "hours" : "giờ"}</b></div>
                         <div className="eb-row"><span>{t("checkoutActual")}:</span> <b>{checkoutData.actualHours.toFixed(2)} {i18n.language === "en" ? "hours" : "giờ"}</b></div>
                         <div className="eb-row"><span>{t("checkoutPaid")}:</span> <b>{formatCurrency(checkoutData.amount)}</b></div>
+                        <div className="eb-row"><span>{t("checkoutPaidDurationCost")}:</span> <b>{formatCurrency(checkoutData.paidDurationCost)}</b></div>
+                        {Number(checkoutData.lateMinutes || 0) > 0 && (
+                          <div className="eb-row" style={{ color: "#dc2626" }}>
+                            <span>{t("checkoutLateMinutes")}:</span> <b>{checkoutData.lateMinutes} {i18n.language === "en" ? "minutes" : "phút"}</b>
+                          </div>
+                        )}
                         {checkoutData.extraCharge > 0 ? (
                           <>
                             <div className="eb-row" style={{ color: "#dc2626" }}>
@@ -1130,12 +1082,21 @@ export default function App() {
                         <div className="eb-row"><span>{t("alreadyBookedStatus")}:</span> <span className="status-badge PAID">{t("statusPaid")}</span></div>
                         <div className="eb-row"><span>{t("bookingAmountLabel")}:</span> <b>{formatCurrency(existingBooking.amount)}</b></div>
                       </div>
-                      {existingBooking.qr_code_token && (
+                      {existingBooking.exit_qr_code_token && (
                         <>
-                          <p style={{ marginTop: 12, fontWeight: 600 }}>{t("qrEntryLabel")}</p>
-                          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(existingBooking.qr_code_token)}`} alt="Entry QR" className="qr-image" />
-                          <p className="qr-note" style={{ marginTop: 8 }}>{t("qrShowNote")}</p>
+                          <p style={{ marginTop: 12, fontWeight: 700, color: "#dc2626" }}>{t("qrExitLabel")}</p>
+                          <img src={`https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=${encodeURIComponent(existingBooking.exit_qr_code_token)}`} alt="Exit QR" className="qr-image" style={{ width: 240, height: 240, borderColor: "#dc2626" }} />
+                          <p className="qr-note" style={{ marginTop: 8, color: "#dc2626" }}>{t("qrExitNote")}</p>
                         </>
+                      )}
+                      {existingBooking.qr_code_token && (
+                        <details style={{ marginTop: 10, textAlign: "left" }}>
+                          <summary style={{ cursor: "pointer", fontWeight: 600, color: "#2563eb" }}>{t("qrEntryLabel")}</summary>
+                          <div style={{ marginTop: 8, textAlign: "center" }}>
+                            <img src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(existingBooking.qr_code_token)}`} alt="Entry QR" className="qr-image" style={{ width: 180, height: 180 }} />
+                            <p className="qr-note" style={{ marginTop: 8 }}>{t("qrEntryNote")}</p>
+                          </div>
+                        </details>
                       )}
                       <button
                         className="btn btn-outline-dark btn-block"
@@ -1160,12 +1121,21 @@ export default function App() {
                   <div className="success-icon large">&#10003;</div>
                   <h3>{t("paymentSuccess")}</h3>
                   <p>{t("qrEntryCode")}:</p>
-                  <img src={bookingResult.qrDataUrl} alt="Entry QR" className="qr-image" />
+                  <img src={bookingResult.exitQrDataUrl || bookingResult.qrDataUrl} alt="Exit QR" className="qr-image" />
                   <div className="qr-info">
                     <p>{t("bookingIdLabel")}: <b>{bookingResult.bookingId}</b></p>
                     <p>{t("checkoutPlateNumber")}: <b>{bookingForm.plateNumber}</b></p>
                     <p>{t("checkoutLotName")}: <b>{selectedLot.name}</b></p>
-                    <p className="qr-note">{t("qrSaveNote")}</p>
+                    <p className="qr-note">{t("qrExitNote")}</p>
+                    {bookingResult.qrDataUrl && bookingResult.exitQrDataUrl && (
+                      <details style={{ marginTop: 10, textAlign: "left" }}>
+                        <summary style={{ cursor: "pointer", fontWeight: 600 }}>{t("qrEntryLabel")}</summary>
+                        <div style={{ marginTop: 8, textAlign: "center" }}>
+                          <img src={bookingResult.qrDataUrl} alt="Entry QR" className="qr-image" style={{ width: 180, height: 180 }} />
+                          <p className="qr-note" style={{ marginTop: 8 }}>{t("qrEntryNote")}</p>
+                        </div>
+                      </details>
+                    )}
                   </div>
                   <button className="btn btn-primary btn-block" onClick={() => { setShowBooking(false); }}>
                     {t("btnClose")}
@@ -1276,21 +1246,6 @@ export default function App() {
           <div className="legend-item"><div className="legend-dot red" /> {t("legendFull")}</div>
           <div className="legend-item"><div className="legend-icon">P</div> {t("legendPublicParking")}</div>
         </div>
-        <hr />
-        <div className="legend-section">
-          <span className="legend-section-title">{t("legendTrafficSection")}</span>
-          <div className="legend-item"><div className="legend-line solid-red" /> {t("legendAbsoluteBan")}</div>
-          <div className="legend-item"><div className="legend-line solid-orange" /> {t("legendTimeBanActive")}</div>
-          <div className="legend-item"><div className="legend-line dashed-orange" /> {t("legendTimeBanInactive")}</div>
-          <div className="legend-item"><div className="legend-line dashed-yellow" /> {t("legendConditional")}</div>
-        </div>
-        <hr />
-        <div className="legend-section">
-          <span className="legend-section-title">{t("legendFineSection")}</span>
-          <div className="legend-item"><span className="legend-fine">{t("legendFineCar")}</span></div>
-          <div className="legend-item"><span className="legend-fine">{t("legendFineMotorbike")}</span></div>
-        </div>
-        <div className="legend-note" dangerouslySetInnerHTML={{ __html: t("legendNote") }} />
       </div>
 
       <button className="booking-fab" onClick={() => setShowLotList((v) => !v)} title={t("fabTitle")}>

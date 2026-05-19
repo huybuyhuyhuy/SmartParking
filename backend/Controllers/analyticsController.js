@@ -5,6 +5,7 @@ import { getMemoryBookings } from "./bookingController.js";
 import { getInternalSlotCount, getMemorySlotEvents } from "./slotController.js";
 
 import { isSqlUp } from "./db.js";
+import { sendError } from "./httpResponse.js";
 
 const GEO_PATH = path.resolve(process.cwd(), "Data", "hue_parking_geometry.json");
 
@@ -79,7 +80,7 @@ export async function getDashboardStats(req, res) {
       ).catch(() => [[{ total: 0 }]]);
 
       const [gateEvents] = await db.query(
-        "SELECT COUNT(*) as total FROM slot_events WHERE source IN ('GATE_IN','GATE_OUT') AND CAST(created_at AS DATE) = CAST(GETDATE() AS DATE)"
+        "SELECT COUNT(*) as total FROM gate_events WHERE CAST(created_at AS DATE) = CAST(GETDATE() AS DATE)"
       ).catch(() => [[{ total: 0 }]]);
 
       const rvByType = {};
@@ -98,7 +99,7 @@ export async function getDashboardStats(req, res) {
         gateEventsToday: gateEvents[0].total
       });
     } catch (err) {
-      return res.status(500).json({ message: err.message });
+      return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message);
     }
   }
 
@@ -120,7 +121,7 @@ export async function getRevenueChart(req, res) {
       ).catch(() => [[], []]);
       return res.json(rows);
     } catch (err) {
-      return res.status(500).json({ message: err.message });
+      return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message);
     }
   }
   const all = getMemoryBookings().filter((b) => b.payment_status === "PAID");
@@ -152,7 +153,7 @@ export async function getOccupancyTrend(req, res) {
       ).catch(() => [[], []]);
       return res.json(rows);
     } catch (err) {
-      return res.status(500).json({ message: err.message });
+      return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message);
     }
   }
   return res.json(getMemorySlotEvents(500));
@@ -168,7 +169,7 @@ export async function getLotUtilization(req, res) {
       ).catch(() => [[], []]);
       return res.json(rows);
     } catch (err) {
-      return res.status(500).json({ message: err.message });
+      return sendError(res, 500, "SYSTEM_INTERNAL_ERROR", err.message);
     }
   }
   const features = await getMemoryLotSnapshot();

@@ -1,11 +1,20 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  font-family: Inter, "Segoe UI", "Noto Sans", Roboto, "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
 .app-container {
   display: flex;
   height: 100vh;
   width: 100%;
   position: relative;
-  font-family: 'Segoe UI', Arial, sans-serif;
+  font-family: inherit;
 }
 
 .map-container {
@@ -100,8 +109,25 @@
   transition: background 0.15s;
 }
 .lot-card:hover { background: #f8fafc; border-color: #2563eb; }
+.lot-card.active-booking {
+  border-color: #93c5fd;
+  background: #eff6ff;
+}
+.lot-card.active-booking:hover {
+  background: #dbeafe;
+}
 .lot-card-info { flex: 1; min-width: 0; }
 .lot-card-name { font-size: 13px; font-weight: 700; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lot-card-active-booking {
+  display: inline-block;
+  margin-top: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 700;
+}
 .lot-card-recommended {
   display: inline-block;
   margin-top: 4px;
@@ -114,6 +140,7 @@
 }
 .lot-card-meta { display: flex; gap: 10px; margin-top: 3px; }
 .lot-card-slots { font-size: 11px; color: #16a34a; font-weight: 600; }
+.lot-card-slots.full { color: #dc2626; }
 .lot-card-price { font-size: 11px; color: #64748b; }
 .lot-card-ev {
   display: inline-block;
@@ -160,6 +187,100 @@
   text-shadow: 0 0 3px rgba(255,255,255,0.8);
 }
 .lot-card .btn-sm { flex-shrink: 0; }
+
+.parking-directory-section {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #e2e8f0;
+}
+.parking-directory-title {
+  margin-bottom: 8px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 800;
+}
+.parking-directory-empty {
+  padding: 4px 2px 10px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+.parking-directory-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+.parking-directory-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+.parking-directory-name {
+  color: #0f172a;
+  font-size: 12px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+.parking-fee-badge {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 2px 7px;
+  font-size: 10px;
+  line-height: 1.2;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.parking-fee-badge.paid {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+.parking-fee-badge.free {
+  background: #dcfce7;
+  color: #166534;
+}
+.parking-fee-badge.listed {
+  background: #fef3c7;
+  color: #b45309;
+}
+.parking-directory-row {
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.4;
+}
+.parking-directory-row span {
+  min-width: 64px;
+  color: #64748b;
+}
+.parking-directory-row b {
+  color: #1e293b;
+  font-weight: 600;
+}
+.parking-directory-note {
+  margin-top: 6px;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.45;
+}
+.parking-directory-note.map-note {
+  color: #64748b;
+  font-style: italic;
+}
+.parking-directory-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.parking-directory-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
 
 /* ===== VEHICLE SELECTOR ===== */
 .vehicle-select {
@@ -434,6 +555,130 @@
   color: #dc2626;
   font-weight: 600;
   padding-top: 4px;
+}
+
+/* ===== PARKING LAW PAGE ===== */
+.parking-law-page {
+  position: fixed;
+  inset: 0;
+  z-index: 2600;
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.20), transparent 34%),
+    rgba(15, 23, 42, 0.52);
+  backdrop-filter: blur(4px);
+  padding: 72px 18px 24px;
+  overflow-y: auto;
+}
+.parking-law-shell {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  background: #f8fafc;
+  border-radius: 18px;
+  box-shadow: 0 28px 80px rgba(15, 23, 42, 0.34);
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.7);
+}
+.parking-law-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 26px 28px;
+  background: linear-gradient(135deg, #0f172a 0%, #1d4ed8 100%);
+  color: white;
+}
+.parking-law-kicker {
+  display: inline-flex;
+  margin-bottom: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.14);
+  border: 1px solid rgba(255,255,255,0.22);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+}
+.parking-law-hero h2 {
+  margin: 0;
+  font-size: 24px;
+  line-height: 1.2;
+}
+.parking-law-hero p {
+  max-width: 720px;
+  margin-top: 8px;
+  color: #dbeafe;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.parking-law-close {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid rgba(255,255,255,0.26);
+  border-radius: 50%;
+  background: rgba(255,255,255,0.12);
+  color: white;
+  cursor: pointer;
+  font-size: 24px;
+  line-height: 1;
+}
+.parking-law-source {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 14px 28px;
+  background: #eff6ff;
+  border-bottom: 1px solid #dbeafe;
+  color: #1e3a8a;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.parking-law-source b {
+  flex-shrink: 0;
+}
+.parking-law-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 20px 28px 22px;
+}
+.parking-law-card {
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  border-left-width: 5px;
+}
+.parking-law-card.blue { border-left-color: #2563eb; }
+.parking-law-card.amber { border-left-color: #f59e0b; }
+.parking-law-card.green { border-left-color: #16a34a; }
+.parking-law-card.red { border-left-color: #dc2626; }
+.parking-law-card h3 {
+  margin: 0 0 10px;
+  color: #0f172a;
+  font-size: 15px;
+}
+.parking-law-card ul {
+  margin: 0;
+  padding-left: 18px;
+}
+.parking-law-card li {
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.55;
+  margin: 7px 0;
+}
+.parking-law-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 28px 22px;
+  border-top: 1px solid #e2e8f0;
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.5;
 }
 
 /* ===== HEADER ===== */
@@ -754,7 +999,6 @@
   font-size: 10px;
   font-weight: 700;
   color: #64748b;
-  text-transform: uppercase;
   letter-spacing: 0.5px;
   display: block;
   margin-bottom: 4px;
@@ -963,5 +1207,11 @@
   .lot-list-panel { left: 4px; right: 4px; width: auto; top: 100px; max-height: 40vh; }
   .legend.enhanced { bottom: 8px; right: 8px; min-width: 200px; max-width: 240px; }
   .traffic-panel { top: 100px; right: 8px; left: 8px; width: auto; max-height: 60vh; }
+  .parking-law-page { padding: 96px 10px 18px; }
+  .parking-law-hero { padding: 20px 18px; }
+  .parking-law-hero h2 { font-size: 20px; }
+  .parking-law-source { flex-direction: column; padding: 12px 18px; gap: 4px; }
+  .parking-law-grid { grid-template-columns: 1fr; padding: 16px 18px; }
+  .parking-law-footer { flex-direction: column; align-items: stretch; padding: 14px 18px 18px; }
   .warning-toast-container { right: 8px; left: 8px; max-width: none; top: 100px; }
 }

@@ -3,6 +3,8 @@ import { cacheGet, cacheSetEx } from "./redisClient.js";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { sendError } from "./httpResponse.js";
+import { recordTelemetryEvent } from "./telemetryController.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -22,12 +24,24 @@ export async function getNearbyParking(req, res) {
   const radius = Number(req.query.radius || 1);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return res.status(400).json({ message: "lat/lng is required and must be numeric" });
+    return sendError(res, 400, "VALIDATION_INVALID_COORDINATES", "lat/lng is required and must be numeric");
   }
 
   const cacheKey = `nearby:${lat}:${lng}:${radius}`;
   const cached = await cacheGet(cacheKey);
-  if (cached) return res.json(JSON.parse(cached));
+  if (cached) {
+    const output = JSON.parse(cached);
+    recordTelemetryEvent("nearby_search_performed", {
+      requestId: req.requestId,
+      lat,
+      lng,
+      radius,
+      resultCount: output.length,
+      cacheHit: true,
+      userId: req.user?.userId ?? null
+    });
+    return res.json(output);
+  }
 
   let rows;
   try {
@@ -73,5 +87,14 @@ export async function getNearbyParking(req, res) {
   }
 
   await cacheSetEx(cacheKey, 30, JSON.stringify(output));
+  recordTelemetryEvent("nearby_search_performed", {
+    requestId: req.requestId,
+    lat,
+    lng,
+    radius,
+    resultCount: output.length,
+    cacheHit: false,
+    userId: req.user?.userId ?? null
+  });
   return res.json(output);
 }

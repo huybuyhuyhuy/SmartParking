@@ -5,10 +5,26 @@
       "type": "Feature",
       "properties": {
         "id": "HUE-P001",
-        "name": "Bãi xe Đông Ba",
+        "name": "Bãi giữ xe Chợ Đông Ba",
         "capacity": 50,
-        "pricePerHour": 5000,
-        "pricePerHourMotorbike": 2000
+        "pricePerHour": 15000,
+        "pricePerHourMotorbike": 3000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Chợ Đông Ba",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 3.000 – 5.000 VNĐ; Ô tô: Khoảng 15.000 VNĐ",
+        "motorbikePriceText": "Khoảng 3.000 – 5.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 15.000 VNĐ",
+        "sourceParkingId": "PARKING-CHO-DONG-BA",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
       },
       "geometry": {
         "type": "Polygon",
@@ -54,7 +70,14 @@
         "contactPhone": "",
         "description": "",
         "imageUrl": "",
-        "updatedAt": "2026-04-29T20:18:47.477Z"
+        "updatedAt": "2026-05-19T10:28:34.682Z",
+        "address": "",
+        "feeType": "paid",
+        "priceText": "",
+        "motorbikePriceText": null,
+        "bicyclePriceText": null,
+        "carPriceText": null,
+        "sourceParkingId": null
       },
       "geometry": {
         "type": "Polygon",
@@ -88,11 +111,26 @@
       "type": "Feature",
       "properties": {
         "id": "HUE-P003",
-        "name": "Bãi đỗ xe Công viên Kim Đồng",
+        "name": "Công viên Kim Đồng",
         "capacity": 80,
-        "pricePerHour": 5000,
-        "pricePerHourMotorbike": 2000,
-        "address": "Đường Hà Nội, TP. Huế"
+        "pricePerHour": 12000,
+        "pricePerHourMotorbike": 4000,
+        "address": "Công viên Kim Đồng",
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: 4.000 – 7.000 VNĐ; Ô tô: 12.000 – 25.000 VNĐ",
+        "motorbikePriceText": "4.000 – 7.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "12.000 – 25.000 VNĐ",
+        "sourceParkingId": "PARKING-KIM-DONG",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
       },
       "geometry": {
         "type": "Polygon",
@@ -128,17 +166,24 @@
         "id": "HUE-P004",
         "name": "Bến xe Nguyễn Hoàng",
         "capacity": 150,
-        "pricePerHour": 10000,
-        "pricePerHourMotorbike": 3000,
+        "pricePerHour": 15000,
+        "pricePerHourMotorbike": 5000,
         "evSupported": false,
-        "vehicleType": "CAR",
+        "vehicleType": "BOTH",
         "openTime": "06:00",
         "closeTime": "22:00",
         "hasSecurity": false,
         "contactPhone": "",
-        "description": "",
+        "description": "Bãi đỗ xe có quản lý.",
         "imageUrl": "",
-        "updatedAt": "2026-05-06T07:36:34.970Z"
+        "updatedAt": "2026-05-19T10:28:34.682Z",
+        "address": "Bến xe Nguyễn Hoàng",
+        "feeType": "paid",
+        "priceText": "Xe máy: 5.000 – 7.000 VNĐ; Ô tô: 15.000 – 40.000 VNĐ",
+        "motorbikePriceText": "5.000 – 7.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "15.000 – 40.000 VNĐ",
+        "sourceParkingId": "PARKING-NGUYEN-HOANG"
       },
       "geometry": {
         "type": "Polygon",
@@ -163,6 +208,483 @@
             [
               107.578,
               16.4675
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P005",
+        "name": "Vincom Plaza Huế",
+        "capacity": 100,
+        "pricePerHour": 15000,
+        "pricePerHourMotorbike": 4000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "50 Hùng Vương",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 4.000 VNĐ; Ô tô: Khoảng 15.000 – 20.000 VNĐ",
+        "motorbikePriceText": "Khoảng 4.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 15.000 – 20.000 VNĐ",
+        "sourceParkingId": "PARKING-VINCOM-PLAZA-HUE",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.5939659,
+              16.4630889
+            ],
+            [
+              107.5945259,
+              16.4630889
+            ],
+            [
+              107.5945259,
+              16.4625289
+            ],
+            [
+              107.5939659,
+              16.4625289
+            ],
+            [
+              107.5939659,
+              16.4630889
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P006",
+        "name": "GO! Huế",
+        "capacity": 100,
+        "pricePerHour": 12000,
+        "pricePerHourMotorbike": 3000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Bà Triệu",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 3.000 VNĐ; Ô tô: Khoảng 12.000 VNĐ",
+        "motorbikePriceText": "Khoảng 3.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 12.000 VNĐ",
+        "sourceParkingId": "PARKING-GO-HUE",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.59572,
+              16.45628
+            ],
+            [
+              107.59628,
+              16.45628
+            ],
+            [
+              107.59628,
+              16.45572
+            ],
+            [
+              107.59572,
+              16.45572
+            ],
+            [
+              107.59572,
+              16.45628
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P007",
+        "name": "Co.opmart Huế",
+        "capacity": 80,
+        "pricePerHour": 12000,
+        "pricePerHourMotorbike": 3000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "06 Trần Hưng Đạo",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 3.000 VNĐ; Ô tô: Khoảng 12.000 VNĐ",
+        "motorbikePriceText": "Khoảng 3.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 12.000 VNĐ",
+        "sourceParkingId": "PARKING-COOPMART-HUE",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.583926,
+              16.468031
+            ],
+            [
+              107.584486,
+              16.468031
+            ],
+            [
+              107.584486,
+              16.467471
+            ],
+            [
+              107.583926,
+              16.467471
+            ],
+            [
+              107.583926,
+              16.468031
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P008",
+        "name": "Bến Tòa Khâm",
+        "capacity": 80,
+        "pricePerHour": 15000,
+        "pricePerHourMotorbike": 4000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Bến Tòa Khâm",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: 4.000 – 7.000 VNĐ; Ô tô: 15.000 – 30.000 VNĐ",
+        "motorbikePriceText": "4.000 – 7.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "15.000 – 30.000 VNĐ",
+        "sourceParkingId": "PARKING-BEN-TOA-KHAM",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.5915543,
+              16.4698881
+            ],
+            [
+              107.5921143,
+              16.4698881
+            ],
+            [
+              107.5921143,
+              16.4693281
+            ],
+            [
+              107.5915543,
+              16.4693281
+            ],
+            [
+              107.5915543,
+              16.4698881
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P009",
+        "name": "Bãi xe Cửa Ngăn",
+        "capacity": 80,
+        "pricePerHour": 15000,
+        "pricePerHourMotorbike": 5000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Cửa Ngăn",
+        "description": "Chưa có giá chi tiết, hiển thị theo giá niêm yết.",
+        "imageUrl": "",
+        "feeType": "listed",
+        "priceText": "Thu theo giá niêm yết",
+        "motorbikePriceText": null,
+        "bicyclePriceText": null,
+        "carPriceText": null,
+        "sourceParkingId": "PARKING-CUA-NGAN",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.580745,
+              16.4682477
+            ],
+            [
+              107.581305,
+              16.4682477
+            ],
+            [
+              107.581305,
+              16.4676877
+            ],
+            [
+              107.580745,
+              16.4676877
+            ],
+            [
+              107.580745,
+              16.4682477
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P010",
+        "name": "Bãi xe Đại Nội Huế",
+        "capacity": 120,
+        "pricePerHour": 20000,
+        "pricePerHourMotorbike": 5000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Đại Nội Huế",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 5.000 VNĐ; Ô tô: Khoảng 20.000 – 30.000 VNĐ",
+        "motorbikePriceText": "Khoảng 5.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 20.000 – 30.000 VNĐ",
+        "sourceParkingId": "PARKING-DAI-NOI-HUE",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.5778466,
+              16.4692526
+            ],
+            [
+              107.5784066,
+              16.4692526
+            ],
+            [
+              107.5784066,
+              16.4686926
+            ],
+            [
+              107.5778466,
+              16.4686926
+            ],
+            [
+              107.5778466,
+              16.4692526
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P011",
+        "name": "Ga Huế",
+        "capacity": 80,
+        "pricePerHour": 20000,
+        "pricePerHourMotorbike": 5000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Ga Huế",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 5.000 VNĐ; Ô tô: Khoảng 20.000 VNĐ",
+        "motorbikePriceText": "Khoảng 5.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 20.000 VNĐ",
+        "sourceParkingId": "PARKING-GA-HUE",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.5777722,
+              16.4567276
+            ],
+            [
+              107.5783322,
+              16.4567276
+            ],
+            [
+              107.5783322,
+              16.4561676
+            ],
+            [
+              107.5777722,
+              16.4561676
+            ],
+            [
+              107.5777722,
+              16.4567276
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P012",
+        "name": "Bệnh viện Trung ương Huế",
+        "capacity": 120,
+        "pricePerHour": 10000,
+        "pricePerHourMotorbike": 3000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Bệnh viện Trung ương Huế",
+        "description": "",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 3.000 – 5.000 VNĐ; Ô tô: Khoảng 10.000 – 20.000 VNĐ",
+        "motorbikePriceText": "Khoảng 3.000 – 5.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 10.000 – 20.000 VNĐ",
+        "sourceParkingId": "PARKING-BENH-VIEN-TRUNG-UONG-HUE",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.586929,
+              16.462529
+            ],
+            [
+              107.587489,
+              16.462529
+            ],
+            [
+              107.587489,
+              16.461969
+            ],
+            [
+              107.586929,
+              16.461969
+            ],
+            [
+              107.586929,
+              16.462529
+            ]
+          ]
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "id": "HUE-P013",
+        "name": "Phố Tây Võ Thị Sáu – Chu Văn An – Phạm Ngũ Lão",
+        "capacity": 60,
+        "pricePerHour": 20000,
+        "pricePerHourMotorbike": 5000,
+        "evSupported": false,
+        "vehicleType": "BOTH",
+        "openTime": "06:00",
+        "closeTime": "22:00",
+        "hasSecurity": true,
+        "contactPhone": "",
+        "address": "Võ Thị Sáu – Chu Văn An – Phạm Ngũ Lão",
+        "description": "Khu vực phố Tây trung tâm Huế.",
+        "imageUrl": "",
+        "feeType": "paid",
+        "priceText": "Xe máy: Khoảng 5.000 – 10.000 VNĐ; Ô tô: Khoảng 20.000 – 50.000 VNĐ",
+        "motorbikePriceText": "Khoảng 5.000 – 10.000 VNĐ",
+        "bicyclePriceText": null,
+        "carPriceText": "Khoảng 20.000 – 50.000 VNĐ",
+        "sourceParkingId": "PARKING-PHO-TAY-HUE",
+        "updatedAt": "2026-05-19T10:28:34.682Z"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              107.59502,
+              16.46978
+            ],
+            [
+              107.59558,
+              16.46978
+            ],
+            [
+              107.59558,
+              16.46922
+            ],
+            [
+              107.59502,
+              16.46922
+            ],
+            [
+              107.59502,
+              16.46978
             ]
           ]
         ]

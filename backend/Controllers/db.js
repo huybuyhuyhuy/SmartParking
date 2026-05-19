@@ -1,16 +1,24 @@
 import "dotenv/config";
 import sql from "mssql";
 
+const envFlag = (value, fallback = false) => {
+  if (value == null || value === "") return fallback;
+  return String(value).toLowerCase() === "true";
+};
+
 const config = {
   server: process.env.DB_SERVER || "localhost",
   database: process.env.DB_DATABASE || "SmartParking",
   port: Number(process.env.DB_PORT || 1433),
   options: {
-    trustedConnection: true,
-    trustServerCertificate: true
+    encrypt: envFlag(process.env.DB_ENCRYPT, false),
+    trustServerCertificate: envFlag(process.env.DB_TRUST_SERVER_CERTIFICATE, true)
   },
   pool: { max: 10, min: 0, idleTimeoutMillis: 30000 }
 };
+
+if (process.env.DB_USER) config.user = process.env.DB_USER;
+if (process.env.DB_PASSWORD) config.password = process.env.DB_PASSWORD;
 
 let pool = null;
 
@@ -28,6 +36,17 @@ export async function isSqlUp() {
   } catch (_e) {
     return false;
   }
+}
+
+export function getDbRuntimeConfig() {
+  return {
+    server: config.server,
+    database: config.database,
+    port: config.port,
+    authMode: config.user ? "sql" : "unspecified",
+    encrypt: config.options.encrypt,
+    trustServerCertificate: config.options.trustServerCertificate
+  };
 }
 
 /**

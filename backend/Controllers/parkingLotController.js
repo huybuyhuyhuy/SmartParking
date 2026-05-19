@@ -3,6 +3,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { cacheGet, cacheSet } from "./redisClient.js";
 import { db } from "./db.js";
+import { sendError } from "./httpResponse.js";
+import { recordTelemetryEvent } from "./telemetryController.js";
+import { broadcastParkingLotUpdate } from "../wsServer.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const GEO_PATH = path.resolve(__dirname, "..", "Data", "hue_parking_geometry.json");
@@ -59,11 +62,40 @@ async function deleteParkingLotFromDb(id) {
   }
 }
 
+function polygonCenter(feature) {
+  const ring = feature?.geometry?.coordinates?.[0] || [];
+  const points = ring.length > 1 ? ring.slice(0, -1) : ring;
+  if (points.length === 0) return { lat: NaN, lng: NaN };
+
+  let area2 = 0;
+  let centroidX = 0;
+  let centroidY = 0;
+  for (let i = 0; i < points.length; i++) {
+    const [x1, y1] = points[i];
+    const [x2, y2] = points[(i + 1) % points.length];
+    const cross = x1 * y2 - x2 * y1;
+    area2 += cross;
+    centroidX += (x1 + x2) * cross;
+    centroidY += (y1 + y2) * cross;
+  }
+
+  if (Math.abs(area2) < 1e-12) {
+    const avg = points.reduce(
+      (acc, [lng, lat]) => ({ lng: acc.lng + lng, lat: acc.lat + lat }),
+      { lng: 0, lat: 0 }
+    );
+    return { lng: avg.lng / points.length, lat: avg.lat / points.length };
+  }
+
+  return {
+    lng: centroidX / (3 * area2),
+    lat: centroidY / (3 * area2)
+  };
+}
+
 function featureToLot(feature) {
   const props = feature?.properties || {};
-  const coords = feature?.geometry?.coordinates?.[0]?.[0];
-  const lng = coords?.[0];
-  const lat = coords?.[1];
+  const center = polygonCenter(feature);
   return {
     id: props.id,
     name: props.name,
@@ -71,8 +103,8 @@ function featureToLot(feature) {
     pricePerHour: Number(props.pricePerHour ?? 5000),
     pricePerHourMotorbike: Number(props.pricePerHourMotorbike ?? props.pricePerHour ?? 2000),
     evSupported: Boolean(props.evSupported),
-    lat: Number(lat),
-    lng: Number(lng),
+    lat: Number(center.lat),
+    lng: Number(center.lng),
     geometry: feature.geometry,
     updatedAt: props.updatedAt || null,
     vehicleType: props.vehicleType || "CAR",
@@ -149,7 +181,12 @@ export async function listParkingLots(req, res) {
 export async function upsertParkingLot(req, res) {
   const feature = normalizeFeature(req.body);
   const validationError = validateFeature(feature);
-  if (validationError) return res.status(400).json({ message: validationError });
+  if (validationError) {
+    const code = validationError.startsWith("Polygon")
+      ? "PARKING_LOT_INVALID_POLYGON"
+      : "VALIDATION_INVALID_GEOJSON";
+    return sendError(res, 400, code, validationError);
+  }
   const id = feature.properties.id;
 
   const geo = await readGeo();
@@ -166,24 +203,37 @@ export async function upsertParkingLot(req, res) {
   // Initialize slot state to match capacity
   const cap = feature.properties.capacity ?? 100;
   await cacheSet(`slots:${id}`, String(cap));
+  recordTelemetryEvent("parking_lot_upserted", {
+    requestId: req.requestId,
+    lotId: id,
+    capacity: cap,
+    actorUserId: req.user?.userId ?? null
+  });
+  broadcastParkingLotUpdate(idx >= 0 ? "updated" : "created", id);
 
   res.json({ ok: true, id });
 }
 
 export async function deleteParkingLot(req, res) {
   const id = req.params.id;
-  if (!id) return res.status(400).json({ message: "id is required" });
+  if (!id) return sendError(res, 400, "VALIDATION_REQUIRED_FIELD", "id is required");
 
   const geo = await readGeo();
   const features = geo.features || [];
   const next = features.filter((f) => f?.properties?.id !== id);
   if (next.length === features.length) {
-    return res.status(404).json({ message: "Parking lot not found" });
+    return sendError(res, 404, "PARKING_LOT_NOT_FOUND", "Parking lot not found");
   }
 
   geo.features = next;
   await writeGeo(geo);
   await deleteParkingLotFromDb(id);
+  recordTelemetryEvent("parking_lot_deleted", {
+    requestId: req.requestId,
+    lotId: id,
+    actorUserId: req.user?.userId ?? null
+  });
+  broadcastParkingLotUpdate("deleted", id);
   return res.json({ ok: true, id });
 }
 
