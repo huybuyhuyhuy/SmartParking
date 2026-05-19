@@ -1,0 +1,8 @@
+File báo cáo Smart Parking Updated được cung cấp trong cuộc trò chuyện. Do giới hạn công cụ GitHub hiện tại chỉ ghi UTF-8 text qua create_file, không thể đẩy trực tiếp file .docx nhị phân ở thao tác này.
+
+Nội dung cập nhật chính cần thêm vào báo cáo:
+
+Cập nhật theo source code thực tế
+Hệ thống Smart Parking Huế hiện được triển khai bằng Node.js + Express cho backend và React/Vite cho frontend. Hệ thống bao gồm 4 giao diện chính: User Map, Booking, Digitalization Tool và IOC Dashboard.
+Cơ sở dữ liệu sử dụng SQL Server với các bảng chính gồm parking_lots, users, bookings, slot_events và sensors. Ngoài ra hệ thống còn hỗ trợ Redis cache, Kafka realtime và chế độ fallback in-memory phục vụ demo.
+Các chức năng chính đã triển khai gồm đặt chỗ bãi xe, tạo QR check-in/check-out, dashboard theo dõi realtime, quản lý sức chứa bãi xe và số hóa dữ liệu GeoJSON.
