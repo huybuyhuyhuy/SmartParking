@@ -3,11 +3,37 @@ import { useTranslation } from "react-i18next";
 import useWebSocket from "./useWebSocket";
 import LangSwitcher from "./components/LangSwitcher.jsx";
 import ParkingLawPage from "./components/ParkingLawPage.jsx";
-import L from "leaflet";
-import "leaflet/dist/leaflet.css";
+import maplibregl from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
 import "./App.css";
 
 const API_BASE = import.meta.env.VITE_API_BASE || "http://localhost:3002";
+const HUE_CENTER = [107.58, 16.46];
+const MAP_STYLE_URL = import.meta.env.VITE_MAP_STYLE_URL || "";
+const PARKING_LOT_SOURCE_ID = "smartparking-paid-lots";
+const PARKING_LOT_FILL_LAYER_ID = "smartparking-paid-lots-fill";
+const PARKING_LOT_OUTLINE_LAYER_ID = "smartparking-paid-lots-outline";
+const PARKING_LOT_LABEL_LAYER_ID = "smartparking-paid-lots-label";
+const PUBLIC_PARKING_SOURCE_ID = "smartparking-public-parking";
+const PUBLIC_PARKING_CIRCLE_LAYER_ID = "smartparking-public-parking-circle";
+const PUBLIC_PARKING_LABEL_LAYER_ID = "smartparking-public-parking-label";
+const EMPTY_FEATURE_COLLECTION = { type: "FeatureCollection", features: [] };
+
+const MAP_STYLE = {
+  version: 8,
+  sources: {
+    "osm-raster": {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+    }
+  },
+  glyphs: "https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf",
+  layers: [
+    { id: "osm-raster", type: "raster", source: "osm-raster" }
+  ]
+};
 
 function haversineMeters(a, b) {
   const R = 6371000;
@@ -55,12 +81,13 @@ export default function App() {
   const [restrictedZones, setRestrictedZones] = useState([]);
   const mapRef = useRef(null);
   const map = useRef(null);
-  const layerGroup = useRef(null);
-  const restrictedLayer = useRef(null);
-  const polygonLayer = useRef(null);
+  const lotMarkerRefs = useRef(new Map());
   const userMarkerRef = useRef(null);
-  const parkingLayer = useRef(null);
-  const parkingMarkerRefs = useRef(new Map());
+  const polygonClickHandlerRef = useRef(null);
+  const polygonCursorHandlersRef = useRef(null);
+  const publicParkingClickHandlerRef = useRef(null);
+  const publicParkingCursorHandlersRef = useRef(null);
+  const [mapReady, setMapReady] = useState(false);
 
   const [showBooking, setShowBooking] = useState(false);
   const [selectedLot, setSelectedLot] = useState(null);
@@ -145,16 +172,218 @@ export default function App() {
     loadUserBookings();
   }, [currentUser?.id, token]);
 
-  useEffect(() => {
-    if (map.current) return;
-    map.current = L.map(mapRef.current).setView([16.46, 107.58], 14);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-    }).addTo(map.current);
-    layerGroup.current = L.layerGroup().addTo(map.current);
-    restrictedLayer.current = L.layerGroup().addTo(map.current);
-    parkingLayer.current = L.layerGroup().addTo(map.current);
+  const clearMarkerMap = useCallback((markerMapRef) => {
+    markerMapRef.current.forEach((marker) => marker.remove());
+    markerMapRef.current.clear();
   }, []);
+
+  const ensureParkingLotLayers = useCallback(() => {
+    const mapInstance = map.current;
+    if (!mapInstance || !mapInstance.isStyleLoaded()) return false;
+
+    if (!mapInstance.getSource(PARKING_LOT_SOURCE_ID)) {
+      mapInstance.addSource(PARKING_LOT_SOURCE_ID, {
+        type: "geojson",
+        data: EMPTY_FEATURE_COLLECTION
+      });
+    }
+
+    if (!mapInstance.getLayer(PARKING_LOT_FILL_LAYER_ID)) {
+      mapInstance.addLayer({
+        id: PARKING_LOT_FILL_LAYER_ID,
+        type: "fill",
+        source: PARKING_LOT_SOURCE_ID,
+        paint: {
+          "fill-color": [
+            "case",
+            ["boolean", ["get", "hasActiveBooking"], false], "#2563eb",
+            [">", ["to-number", ["get", "availableSlots"]], 0], "#22c55e",
+            "#ef4444"
+          ],
+          "fill-opacity": 0.24
+        }
+      });
+    }
+
+    if (!mapInstance.getLayer(PARKING_LOT_OUTLINE_LAYER_ID)) {
+      mapInstance.addLayer({
+        id: PARKING_LOT_OUTLINE_LAYER_ID,
+        type: "line",
+        source: PARKING_LOT_SOURCE_ID,
+        paint: {
+          "line-color": [
+            "case",
+            ["boolean", ["get", "hasActiveBooking"], false], "#1d4ed8",
+            [">", ["to-number", ["get", "availableSlots"]], 0], "#16a34a",
+            "#dc2626"
+          ],
+          "line-width": 3,
+          "line-opacity": 0.95
+        }
+      });
+    }
+
+    if (!mapInstance.getLayer(PARKING_LOT_LABEL_LAYER_ID)) {
+      mapInstance.addLayer({
+        id: PARKING_LOT_LABEL_LAYER_ID,
+        type: "symbol",
+        source: PARKING_LOT_SOURCE_ID,
+        layout: {
+          "text-field": ["get", "name"],
+          "text-size": 11,
+          "text-font": ["Noto Sans Regular"],
+          "text-anchor": "center",
+          "text-allow-overlap": false,
+          "text-ignore-placement": false
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "#1e3a5f",
+          "text-halo-width": 2
+        }
+      });
+    }
+
+    if (!polygonClickHandlerRef.current) {
+      polygonClickHandlerRef.current = (event) => {
+        const feature = event.features?.[0];
+        if (!feature) return;
+        const props = feature.properties || {};
+        const lng = Number(props.lng ?? event.lngLat.lng);
+        const lat = Number(props.lat ?? event.lngLat.lat);
+        new maplibregl.Popup({ offset: 16 })
+          .setLngLat([lng, lat])
+          .setHTML(props.popupHtml || "")
+          .addTo(mapInstance);
+      };
+      mapInstance.on("click", PARKING_LOT_FILL_LAYER_ID, polygonClickHandlerRef.current);
+    }
+
+    if (!polygonCursorHandlersRef.current) {
+      const enter = () => { mapInstance.getCanvas().style.cursor = "pointer"; };
+      const leave = () => { mapInstance.getCanvas().style.cursor = ""; };
+      polygonCursorHandlersRef.current = { enter, leave };
+      mapInstance.on("mouseenter", PARKING_LOT_FILL_LAYER_ID, enter);
+      mapInstance.on("mouseleave", PARKING_LOT_FILL_LAYER_ID, leave);
+    }
+
+    return true;
+  }, []);
+
+  const ensurePublicParkingLayers = useCallback(() => {
+    const mapInstance = map.current;
+    if (!mapInstance || !mapInstance.isStyleLoaded()) return false;
+
+    if (!mapInstance.getSource(PUBLIC_PARKING_SOURCE_ID)) {
+      mapInstance.addSource(PUBLIC_PARKING_SOURCE_ID, {
+        type: "geojson",
+        data: EMPTY_FEATURE_COLLECTION
+      });
+    }
+
+    if (!mapInstance.getLayer(PUBLIC_PARKING_CIRCLE_LAYER_ID)) {
+      mapInstance.addLayer({
+        id: PUBLIC_PARKING_CIRCLE_LAYER_ID,
+        type: "circle",
+        source: PUBLIC_PARKING_SOURCE_ID,
+        paint: {
+          "circle-radius": 16,
+          "circle-color": [
+            "case",
+            ["==", ["get", "feeType"], "free"], "#16a34a",
+            ["==", ["get", "feeType"], "listed"], "#f59e0b",
+            "#2563eb"
+          ],
+          "circle-stroke-color": "#ffffff",
+          "circle-stroke-width": 3,
+          "circle-opacity": 0.96
+        }
+      });
+    }
+
+    if (!mapInstance.getLayer(PUBLIC_PARKING_LABEL_LAYER_ID)) {
+      mapInstance.addLayer({
+        id: PUBLIC_PARKING_LABEL_LAYER_ID,
+        type: "symbol",
+        source: PUBLIC_PARKING_SOURCE_ID,
+        layout: {
+          "text-field": "P",
+          "text-size": 16,
+          "text-font": ["Noto Sans Bold"],
+          "text-allow-overlap": true,
+          "text-ignore-placement": true
+        },
+        paint: {
+          "text-color": "#ffffff",
+          "text-halo-color": "rgba(0,0,0,0)",
+          "text-halo-width": 0
+        }
+      });
+    }
+
+    if (!publicParkingClickHandlerRef.current) {
+      publicParkingClickHandlerRef.current = (event) => {
+        const feature = event.features?.[0];
+        const coords = feature?.geometry?.coordinates;
+        if (!feature || !Array.isArray(coords)) return;
+        new maplibregl.Popup({ offset: 20, focusAfterOpen: false })
+          .setLngLat(coords)
+          .setHTML(feature.properties?.popupHtml || "")
+          .addTo(mapInstance);
+      };
+      mapInstance.on("click", PUBLIC_PARKING_CIRCLE_LAYER_ID, publicParkingClickHandlerRef.current);
+      mapInstance.on("click", PUBLIC_PARKING_LABEL_LAYER_ID, publicParkingClickHandlerRef.current);
+    }
+
+    if (!publicParkingCursorHandlersRef.current) {
+      const enter = () => { mapInstance.getCanvas().style.cursor = "pointer"; };
+      const leave = () => { mapInstance.getCanvas().style.cursor = ""; };
+      publicParkingCursorHandlersRef.current = { enter, leave };
+      mapInstance.on("mouseenter", PUBLIC_PARKING_CIRCLE_LAYER_ID, enter);
+      mapInstance.on("mouseleave", PUBLIC_PARKING_CIRCLE_LAYER_ID, leave);
+      mapInstance.on("mouseenter", PUBLIC_PARKING_LABEL_LAYER_ID, enter);
+      mapInstance.on("mouseleave", PUBLIC_PARKING_LABEL_LAYER_ID, leave);
+    }
+
+    return true;
+  }, []);
+
+
+  useEffect(() => {
+    if (map.current || !mapRef.current) return;
+
+    const mapInstance = new maplibregl.Map({
+      container: mapRef.current,
+      style: MAP_STYLE_URL || MAP_STYLE,
+      center: HUE_CENTER,
+      zoom: 14,
+      attributionControl: false
+    });
+
+    mapInstance.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    mapInstance.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    map.current = mapInstance;
+
+    mapInstance.on("load", () => {
+      ensureParkingLotLayers();
+      setMapReady(true);
+    });
+
+    return () => {
+      clearMarkerMap(lotMarkerRefs);
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
+      polygonClickHandlerRef.current = null;
+      polygonCursorHandlersRef.current = null;
+      publicParkingClickHandlerRef.current = null;
+      publicParkingCursorHandlersRef.current = null;
+      mapInstance.remove();
+      map.current = null;
+      setMapReady(false);
+    };
+  }, [clearMarkerMap, ensureParkingLotLayers]);
 
   const loadLots = useCallback(() =>
     fetch(`${API_BASE}/api/parking-lots`, { cache: "no-store" })
@@ -171,8 +400,6 @@ export default function App() {
       .then((data) => {
         const feats = data.features || [];
         setRestrictedZones(feats);
-        try { renderRestrictedZones(feats); } catch (err) { console.error("[user-map] renderRestrictedZones failed:", err); }
-        try { renderParkingPoints(feats); } catch (err) { console.error("[user-map] renderParkingPoints failed:", err); }
       })
       .catch((err) => { console.error("[user-map] loadRestricted failed:", err); }), []);
 
@@ -212,32 +439,6 @@ export default function App() {
     return null;
   };
 
-  const parkingFeeSortRank = (feeType) => {
-    if (feeType === "paid") return 0;
-    if (feeType === "listed") return 1;
-    if (feeType === "free") return 2;
-    return 3;
-  };
-
-  const getParkingSearchText = (feature) => {
-    const props = feature?.properties || {};
-    return [
-      props.name,
-      props.location_text,
-      props.area,
-      props.description,
-      props.note,
-      props.price,
-      props.motorbike_price,
-      props.bicycle_price,
-      props.car_price,
-      ...(props.vehicle_types || [])
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-  };
-
   const getParkingPoint = (feature) => {
     if (feature?.geometry?.type !== "Point") return null;
     const [lng, lat] = feature.geometry.coordinates || [];
@@ -246,35 +447,28 @@ export default function App() {
   };
 
   const renderRestrictedZones = () => {
-    if (!restrictedLayer.current) return;
-    // Clear the layer and intentionally skip drawing forbidden-road overlays.
-    restrictedLayer.current.clearLayers();
+    // Forbidden-road overlays stay hidden on the user map.
   };
+
   const renderParkingPoints = (features) => {
-    if (!parkingLayer.current) return;
-    parkingLayer.current.clearLayers();
-    parkingMarkerRefs.current.clear();
-    features.forEach((feature) => {
-      if (feature.properties.restriction_type !== "PARKING") return;
-      if (feature.properties.bookable_lot_id) return;
-      const point = getParkingPoint(feature);
-      if (!point) return;
-      const { lat, lng } = point;
-      const props = feature.properties;
-      const icon = L.divIcon({
-        className: "parking-icon",
-        html: '<div class="parking-marker">P</div>',
-        iconSize: [32, 32],
-        iconAnchor: [16, 16]
-      });
-      const parkingType = props.parking_type === "mall" ? t("parkingTypeMall") : t("parkingTypePublic");
-      const feeMeta = getParkingFeeMeta(props.fee_type);
-      const vehicleLabel = props.vehicle_types?.length
-        ? vehicleTypeLabelFn(props.vehicle_types)
-        : t("parkingVehicleTypesUnknown");
-      const marker = L.marker([lat, lng], { icon });
-      marker
-        .bindPopup(`
+    if (!map.current || !mapReady) return;
+    if (!ensurePublicParkingLayers()) return;
+
+    const pointFeatures = features
+      .filter((feature) => feature.properties.restriction_type === "PARKING")
+      .filter((feature) => !feature.properties.bookable_lot_id)
+      .map((feature) => {
+        const point = getParkingPoint(feature);
+        if (!point) return null;
+        const { lat, lng } = point;
+        const props = feature.properties;
+
+        const parkingType = props.parking_type === "mall" ? t("parkingTypeMall") : t("parkingTypePublic");
+        const feeMeta = getParkingFeeMeta(props.fee_type);
+        const vehicleLabel = props.vehicle_types?.length
+          ? vehicleTypeLabelFn(props.vehicle_types)
+          : t("parkingVehicleTypesUnknown");
+        const popupHtml = `
           <div class="zone-popup">
             <div class="zone-popup-header" style="border-left: 4px solid #16a34a">
               <span class="zone-badge" style="background:#16a34a;color:white">${t("zoneLabelParking")}</span>
@@ -295,12 +489,29 @@ export default function App() {
             </div>
             <button class="popup-nav-btn" onclick="window.__openDirections(${lat},${lng})">${t("btnDirectionToHere")}</button>
           </div>
-        `)
-        .addTo(parkingLayer.current);
-      parkingMarkerRefs.current.set(props.id, marker);
-    });
-  };
+        `;
 
+        return {
+          type: "Feature",
+          properties: {
+            id: props.id,
+            name: props.name,
+            feeType: props.fee_type || "",
+            popupHtml
+          },
+          geometry: {
+            type: "Point",
+            coordinates: [lng, lat]
+          }
+        };
+      })
+      .filter(Boolean);
+
+    const source = map.current.getSource(PUBLIC_PARKING_SOURCE_ID);
+    if (source) {
+      source.setData({ type: "FeatureCollection", features: pointFeatures });
+    }
+  };
   useEffect(() => {
     loadLots();
     loadRestricted();
@@ -315,7 +526,7 @@ export default function App() {
       renderRestrictedZones(restrictedZones);
       renderParkingPoints(restrictedZones);
     }
-  }, [restrictedZones, vehicleType, t]);
+  }, [restrictedZones, t, i18n.language, mapReady]);
 
   const formatCurrency = (n) =>
     new Intl.NumberFormat(i18n.language, { style: "currency", currency: "VND", minimumFractionDigits: 0 }).format(n || 0);
@@ -332,36 +543,9 @@ export default function App() {
     () => new Set(activeBookingsByLotId.keys()),
     [activeBookingsByLotId]
   );
-  const filteredParkingDirectory = useMemo(() => {
-    const query = filters.search.trim().toLowerCase();
-    return restrictedZones
-      .filter((feature) => feature?.properties?.restriction_type === "PARKING")
-      .filter((feature) => !feature?.properties?.bookable_lot_id)
-      .filter((feature) => !query || getParkingSearchText(feature).includes(query))
-      .sort((a, b) => {
-        const rankDiff = parkingFeeSortRank(a.properties?.fee_type) - parkingFeeSortRank(b.properties?.fee_type);
-        if (rankDiff !== 0) return rankDiff;
-        return String(a.properties?.name || "").localeCompare(String(b.properties?.name || ""), i18n.language);
-      });
-  }, [restrictedZones, filters.search]);
-
-  const focusParkingFeature = useCallback((featureId) => {
-    if (!map.current) return;
-    const marker = parkingMarkerRefs.current.get(featureId);
-    if (marker) {
-      map.current.setView(marker.getLatLng(), 17);
-      marker.openPopup();
-      return;
-    }
-    const feature = restrictedZones.find((item) => item?.properties?.id === featureId);
-    const point = getParkingPoint(feature);
-    if (!point) return;
-    map.current.setView([point.lat, point.lng], 17);
-  }, [restrictedZones]);
 
   useEffect(() => {
-    if (!map.current || !layerGroup.current) return;
-    layerGroup.current.clearLayers();
+    if (!map.current || !mapReady) return;
 
     const filtered = lots.filter((lot) => {
       const hasActiveBooking = activeBookingLotIds.has(lot.id);
@@ -376,16 +560,41 @@ export default function App() {
       return true;
     });
 
+    const nextIds = new Set();
+
     for (const lot of filtered) {
+      nextIds.add(lot.id);
       const hasActiveBooking = activeBookingLotIds.has(lot.id);
+      const markerState = hasActiveBooking ? "active" : lot.availableSlots > 0 ? "available" : "full";
       const color = hasActiveBooking ? "#2563eb" : lot.availableSlots > 0 ? "#22c55e" : "#ef4444";
       const availableText = lot.availableSlots > 0
         ? `${t("mapPopupAvailable")}: ${lot.availableSlots}`
         : t("mapPopupFull");
-      const marker = L.circleMarker([lot.lat, lot.lng], {
-        radius: 10, fillColor: color, color: "#fff", weight: 2, opacity: 1, fillOpacity: 0.8
-      });
-      marker.bindPopup(`
+
+      let marker = lotMarkerRefs.current.get(lot.id);
+      if (!marker) {
+        const el = document.createElement("button");
+        el.type = "button";
+        el.style.zIndex = "20";
+        marker = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([lot.lng, lot.lat])
+          .addTo(map.current);
+        marker.__smartParkingLngLatKey = `${lot.lng},${lot.lat}`;
+        lotMarkerRefs.current.set(lot.id, marker);
+      }
+
+      const el = marker.getElement();
+      el.className = `lot-map-marker ${markerState}`;
+      el.title = lot.name;
+      el.setAttribute("aria-label", lot.name);
+
+      const lngLatKey = `${lot.lng},${lot.lat}`;
+      if (marker.__smartParkingLngLatKey !== lngLatKey) {
+        marker.setLngLat([lot.lng, lot.lat]);
+        marker.__smartParkingLngLatKey = lngLatKey;
+      }
+
+      marker.setPopup(new maplibregl.Popup({ offset: 18 }).setHTML(`
         <div style="min-width: 180px">
           <b style="font-size: 14px">${lot.name}</b><br/>
           <span style="font-size: 11px; color: #666">${lot.id}</span>
@@ -402,56 +611,62 @@ export default function App() {
             ${t("mapPopupDirections")}
           </button>` : ''}
         </div>
-      `);
-      marker.addTo(layerGroup.current);
+      `));
     }
-  }, [lots, filters, t, i18n.language, activeBookingLotIds]);
 
+    lotMarkerRefs.current.forEach((marker, id) => {
+      if (nextIds.has(id)) return;
+      marker.remove();
+      lotMarkerRefs.current.delete(id);
+    });
+  }, [lots, filters, t, i18n.language, activeBookingLotIds, mapReady]);
   useEffect(() => {
-    if (!map.current) return;
-    if (polygonLayer.current) { polygonLayer.current.remove(); polygonLayer.current = null; }
+    if (!map.current || !mapReady) return;
+    if (!ensureParkingLotLayers()) return;
 
     const features = lots
       .filter((l) => l.geometry && l.geometry.type === "Polygon")
-      .map((l) => ({
-        type: "Feature",
-        properties: { id: l.id, name: l.name, availableSlots: l.availableSlots, pricePerHour: l.pricePerHour },
-        geometry: l.geometry
-      }));
+      .map((l) => {
+        const hasActiveBooking = activeBookingLotIds.has(l.id);
+        const canOpenBooking = (l.availableSlots ?? 0) > 0 || hasActiveBooking;
+        const hasPoint = Number.isFinite(Number(l.lat)) && Number.isFinite(Number(l.lng));
+        const popupHtml = `
+          <div style="min-width: 200px">
+            <b style="font-size: 14px">${l.name}</b><br/>
+            <span style="font-size: 11px; color: #666">${l.id}</span>
+            <hr style="margin: 5px 0"/>
+            ${t("mapPopupAvailable")}: <b>${l.availableSlots}</b> / ${t("mapPopupTotal")}: ${l.capacity}<br/>
+            ${t("lotPrice")}: ${formatCurrency(l.pricePerHour || 0)}/h
+            ${canOpenBooking ? `<button onclick="window.__openBooking('${l.id}')" style="margin-top:8px;width:100%;background:#2563eb;color:white;border:none;padding:6px;border-radius:4px;cursor:pointer">
+              ${hasActiveBooking ? t("mapPopupManageBooking") : t("mapPopupBookNow")}
+            </button>` : ""}
+            ${hasPoint ? `<button onclick="window.__openDirections(${Number(l.lat)},${Number(l.lng)})" style="margin-top:4px;width:100%;background:#fff;color:#2563eb;border:1px solid #2563eb;padding:5px;border-radius:4px;cursor:pointer;font-size:12px">
+              ${t("mapPopupDirections")}
+            </button>` : ""}
+          </div>
+        `;
+        return {
+          type: "Feature",
+          properties: {
+            id: l.id,
+            name: l.name,
+            lat: l.lat,
+            lng: l.lng,
+            capacity: l.capacity,
+            availableSlots: l.availableSlots,
+            pricePerHour: l.pricePerHour,
+            hasActiveBooking,
+            popupHtml
+          },
+          geometry: l.geometry
+        };
+      });
 
-    if (!features.length) return;
-
-    polygonLayer.current = L.geoJSON(
-      { type: "FeatureCollection", features },
-      {
-        style: (f) => {
-          const available = (f?.properties?.availableSlots ?? 0) > 0;
-          return {
-            color: available ? "#16a34a" : "#dc2626",
-            weight: 3,
-            opacity: 0.9,
-            fillOpacity: 0.2,
-            fillColor: available ? "#22c55e" : "#ef4444",
-            dashArray: null
-          };
-        },
-        onEachFeature: (feature, layer) => {
-          const p = feature.properties || {};
-          layer.bindPopup(`
-            <div style="min-width: 200px">
-              <b style="font-size: 14px">${p.name}</b><br/>
-              <span style="font-size: 11px; color: #666">${p.id}</span>
-              <hr style="margin: 5px 0"/>
-              ${t("mapPopupAvailable")}: <b>${p.availableSlots}</b><br/>
-              ${t("lotPrice")}: ${formatCurrency(p.pricePerHour || 0)}/h
-            </div>
-          `);
-          layer.bindTooltip(p.name, { permanent: true, direction: "center", className: "polygon-label" });
-        }
-      }
-    ).addTo(map.current);
-  }, [lots, t, i18n.language]);
-
+    const source = map.current.getSource(PARKING_LOT_SOURCE_ID);
+    if (source) {
+      source.setData({ type: "FeatureCollection", features });
+    }
+  }, [lots, t, i18n.language, activeBookingLotIds, mapReady, ensureParkingLotLayers]);
   const checkProximity = useCallback(() => {
     // Parking-law warnings were moved off the map to keep the user view clean.
   }, []);
@@ -484,19 +699,34 @@ export default function App() {
   }, [lots, userBookings]);
 
   const locateUser = () => {
-    if (!map.current) return;
-    map.current.locate({ setView: true, maxZoom: 16 });
-    map.current.once("locationfound", (e) => {
-      const { lat, lng } = e.latlng;
-      if (userMarkerRef.current) map.current.removeLayer(userMarkerRef.current);
-      userMarkerRef.current = L.marker([lat, lng], {
-        icon: L.divIcon({ className: "user-marker", html: '<div style="width:16px;height:16px;background:#2563eb;border:3px solid white;border-radius:50%;box-shadow:0 0 8px rgba(37,99,235,0.6)"></div>', iconSize: [16, 16], iconAnchor: [8, 8] })
-      }).addTo(map.current).bindPopup(t("myLocation")).openPopup();
-      setUserLocation({ lat, lng });
-      checkProximity(lat, lng);
-    });
-  };
+    if (!map.current || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      ({ coords }) => {
+        const lat = coords.latitude;
+        const lng = coords.longitude;
+        if (userMarkerRef.current) {
+          userMarkerRef.current.remove();
+          userMarkerRef.current = null;
+        }
 
+        const el = document.createElement("div");
+        el.className = "user-location-dot";
+        userMarkerRef.current = new maplibregl.Marker({ element: el, anchor: "center" })
+          .setLngLat([lng, lat])
+          .setPopup(new maplibregl.Popup({ offset: 14 }).setText(t("myLocation")))
+          .addTo(map.current);
+        userMarkerRef.current.togglePopup();
+
+        map.current.flyTo({ center: [lng, lat], zoom: 16, essential: true });
+        setUserLocation({ lat, lng });
+        checkProximity(lat, lng);
+      },
+      (err) => {
+        console.error("[user-map] geolocation failed:", err);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 30000 }
+    );
+  };
   const requireAuth = () => {
     if (currentUser && token) return true;
     setAuthError(t("authLoginRequired"));
@@ -759,77 +989,7 @@ export default function App() {
                     );
                   })}
 
-                  <div className="parking-directory-section">
-                    <div className="parking-directory-title">
-                      {t("parkingDirectoryTitle", { count: filteredParkingDirectory.length })}
-                    </div>
-                    {filteredParkingDirectory.length === 0 ? (
-                      <p className="parking-directory-empty">{t("parkingDirectoryEmpty")}</p>
-                    ) : filteredParkingDirectory.map((feature) => {
-                      const props = feature.properties;
-                      const feeMeta = getParkingFeeMeta(props.fee_type);
-                      const vehicleLabel = props.vehicle_types?.length
-                        ? vehicleTypeLabelFn(props.vehicle_types)
-                        : t("parkingVehicleTypesUnknown");
-                      const point = getParkingPoint(feature);
-                      return (
-                        <div key={props.id} className="parking-directory-card">
-                          <div className="parking-directory-header">
-                            <div className="parking-directory-name">{props.name}</div>
-                            {feeMeta && (
-                              <span className={`parking-fee-badge ${feeMeta.className}`}>{feeMeta.label}</span>
-                            )}
-                          </div>
-                          {(props.location_text || props.area) && (
-                            <div className="parking-directory-row">
-                              <span>{t("parkingLocation")}:</span>
-                              <b>{props.location_text || props.area}</b>
-                            </div>
-                          )}
-                          <div className="parking-directory-row">
-                            <span>{t("zoneVehicles")}:</span>
-                            <b>{vehicleLabel}</b>
-                          </div>
-                          {props.motorbike_price && (
-                            <div className="parking-directory-row">
-                              <span>{t("parkingMotorbikePrice")}:</span>
-                              <b>{props.motorbike_price}</b>
-                            </div>
-                          )}
-                          {props.bicycle_price && (
-                            <div className="parking-directory-row">
-                              <span>{t("parkingBicyclePrice")}:</span>
-                              <b>{props.bicycle_price}</b>
-                            </div>
-                          )}
-                          {props.car_price && (
-                            <div className="parking-directory-row">
-                              <span>{t("parkingCarPrice")}:</span>
-                              <b>{props.car_price}</b>
-                            </div>
-                          )}
-                          {!props.motorbike_price && !props.bicycle_price && !props.car_price && props.price && (
-                            <div className="parking-directory-row">
-                              <span>{t("lotPrice")}:</span>
-                              <b>{props.price}</b>
-                            </div>
-                          )}
-                          {props.note && <div className="parking-directory-note">{props.note}</div>}
-                          {props.map_note && <div className="parking-directory-note map-note">{props.map_note}</div>}
-                          {point && (
-                            <div className="parking-directory-actions">
-                              <button className="btn btn-sm btn-outline-dark" onClick={() => focusParkingFeature(props.id)}>
-                                {t("btnViewOnMap")}
-                              </button>
-                              <button className="btn btn-sm btn-primary" onClick={() => window.__openDirections(point.lat, point.lng)}>
-                                {t("btnDirections")}
-                              </button>
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
+
                 </>
               );
             })()}
@@ -1255,3 +1415,10 @@ export default function App() {
     </div>
   );
 }
+
+
+
+
+
+
+

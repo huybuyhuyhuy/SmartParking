@@ -188,42 +188,6 @@ html, body, #root {
 }
 .lot-card .btn-sm { flex-shrink: 0; }
 
-.parking-directory-section {
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid #e2e8f0;
-}
-.parking-directory-title {
-  margin-bottom: 8px;
-  color: #0f172a;
-  font-size: 12px;
-  font-weight: 800;
-}
-.parking-directory-empty {
-  padding: 4px 2px 10px;
-  color: #94a3b8;
-  font-size: 11px;
-}
-.parking-directory-card {
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  background: #f8fafc;
-  padding: 10px 12px;
-  margin-bottom: 8px;
-}
-.parking-directory-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
-  margin-bottom: 6px;
-}
-.parking-directory-name {
-  color: #0f172a;
-  font-size: 12px;
-  line-height: 1.35;
-  font-weight: 700;
-}
 .parking-fee-badge {
   display: inline-flex;
   align-items: center;
@@ -245,41 +209,6 @@ html, body, #root {
 .parking-fee-badge.listed {
   background: #fef3c7;
   color: #b45309;
-}
-.parking-directory-row {
-  display: flex;
-  gap: 6px;
-  align-items: flex-start;
-  color: #475569;
-  font-size: 11px;
-  line-height: 1.4;
-}
-.parking-directory-row span {
-  min-width: 64px;
-  color: #64748b;
-}
-.parking-directory-row b {
-  color: #1e293b;
-  font-weight: 600;
-}
-.parking-directory-note {
-  margin-top: 6px;
-  color: #475569;
-  font-size: 11px;
-  line-height: 1.45;
-}
-.parking-directory-note.map-note {
-  color: #64748b;
-  font-style: italic;
-}
-.parking-directory-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-.parking-directory-actions .btn {
-  flex: 1;
-  justify-content: center;
 }
 
 /* ===== VEHICLE SELECTOR ===== */
@@ -1214,4 +1143,74 @@ html, body, #root {
   .parking-law-grid { grid-template-columns: 1fr; padding: 16px 18px; }
   .parking-law-footer { flex-direction: column; align-items: stretch; padding: 14px 18px 18px; }
   .warning-toast-container { right: 8px; left: 8px; max-width: none; top: 100px; }
+}
+
+/* ===== MAPLIBRE ENGINE ===== */
+.maplibregl-map,
+.maplibregl-popup {
+  font-family: inherit;
+}
+.maplibregl-canvas {
+  outline: none;
+}
+.maplibregl-popup-content {
+  border-radius: 10px;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.22);
+  padding: 12px;
+  color: #1e293b;
+}
+.maplibregl-popup-close-button {
+  width: 22px;
+  height: 22px;
+  font-size: 18px;
+  color: #64748b;
+}
+.maplibregl-ctrl-top-right {
+  top: 58px;
+  right: 10px;
+}
+.maplibregl-ctrl-bottom-right {
+  right: 12px;
+  bottom: 126px;
+}
+
+.lot-map-marker {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 3px solid #fff;
+  color: white;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.34);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 900;
+  transition: box-shadow 0.15s ease;
+}
+.lot-map-marker::before { content: "P"; }
+.lot-map-marker.available { background: #22c55e; }
+.lot-map-marker.full { background: #ef4444; }
+.lot-map-marker.active { background: #2563eb; }
+.lot-map-marker:hover {
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.42);
+}
+.parking-public-map-marker {
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  transition: none !important;
+}
+.parking-public-map-marker .parking-marker,
+.maplibregl-marker {
+  transition: none !important;
+}
+.user-location-dot {
+  width: 18px;
+  height: 18px;
+  background: #2563eb;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 0 0 4px rgba(37,99,235,0.20), 0 0 12px rgba(37,99,235,0.65);
 }

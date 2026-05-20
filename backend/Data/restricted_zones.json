@@ -919,34 +919,6 @@
     {
       "type": "Feature",
       "properties": {
-        "id": "PARKING-BIGC",
-        "name": "BigC Huế",
-        "restriction_type": "PARKING",
-        "vehicle_types": [
-          "CAR",
-          "MOTORBIKE"
-        ],
-        "description": "Bãi đỗ xe siêu thị - Miễn phí",
-        "rules": "Bãi rộng, miễn phí cho khách mua sắm. Có bảo vệ.",
-        "parking_type": "mall",
-        "price": "Miễn phí",
-        "area": "Trung tâm",
-        "fee_type": "free",
-        "motorbike_price": "Miễn phí",
-        "car_price": "Miễn phí",
-        "note": "Miễn phí cho khách mua sắm."
-      },
-      "geometry": {
-        "type": "Point",
-        "coordinates": [
-          107.596,
-          16.456
-        ]
-      }
-    },
-    {
-      "type": "Feature",
-      "properties": {
         "id": "PARKING-VINCOM-PLAZA-HUE",
         "name": "Vincom Plaza Huế",
         "restriction_type": "PARKING",
@@ -956,12 +928,12 @@
         ],
         "description": "",
         "rules": "",
-        "price": "Xe máy: Khoảng 4.000 VNĐ; Ô tô: Khoảng 15.000 – 20.000 VNĐ",
+        "price": "Xe m?y: Kho?ng 4.000 VN?; ? t?: Kho?ng 15.000 ? 20.000 VN?",
         "location_text": "50 Hùng Vương",
         "fee_type": "paid",
-        "motorbike_price": "Khoảng 4.000 VNĐ",
+        "motorbike_price": "Kho?ng 4.000 VN?",
         "bicycle_price": null,
-        "car_price": "Khoảng 15.000 – 20.000 VNĐ",
+        "car_price": "Kho?ng 15.000 ? 20.000 VN?",
         "note": "",
         "coordinate_source": "OpenStreetMap/Nominatim",
         "bookable_lot_id": "HUE-P005"
@@ -993,8 +965,8 @@
         "bicycle_price": null,
         "car_price": "Khoảng 12.000 VNĐ",
         "note": "",
-        "coordinate_source": "Dữ liệu BigC/GO hiện có trong dự án",
-        "map_note": "Điểm trên bản đồ dùng tọa độ BigC/GO Huế hiện có trong dữ liệu cũ.",
+        "coordinate_source": "D? li?u GO! Hu? hi?n c? trong d? ?n",
+        "map_note": "?i?m tr?n b?n ?? d?ng t?a ?? GO! Hu? hi?n c? trong d? li?u c?.",
         "bookable_lot_id": "HUE-P006"
       },
       "geometry": {

@@ -274,14 +274,60 @@ html, body, #root {
 }
 .chart-card h3 { font-size: 14px; margin-bottom: 12px; color: #334155; }
 .chart-card h4 { font-size: 12px; margin-bottom: 8px; color: #64748b; }
-.capacity-chart-scroll {
+.capacity-list {
   max-height: 290px;
   overflow-y: auto;
   overflow-x: hidden;
-  padding-right: 6px;
+  padding-right: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
-.capacity-chart-scroll .recharts-cartesian-axis-tick-value {
-  fill: #475569;
+.capacity-row {
+  padding: 9px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #f8fafc;
+}
+.capacity-row-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.capacity-row-head span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: #1e293b;
+  font-size: 12px;
+  font-weight: 700;
+}
+.capacity-row-head b {
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 800;
+}
+.capacity-bar-track {
+  height: 9px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  overflow: hidden;
+}
+.capacity-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #2563eb, #22c55e);
+}
+.capacity-row-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 6px;
+  color: #64748b;
+  font-size: 11px;
 }
 
 /* MINI MAP */

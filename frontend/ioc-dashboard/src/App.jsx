@@ -462,6 +462,7 @@ export default function App() {
       occupied: Math.max(Number(l.capacity || 0) - Number(l.availableSlots || 0), 0)
     }))
     .sort((a, b) => b.capacity - a.capacity);
+  const maxLotCapacity = Math.max(...capacityData.map((item) => item.capacity), 1);
 
   if (authLoading) return <div className="login-page"><div className="login-card"><p style={{ textAlign: "center" }}>Loading...</p></div></div>;
 
@@ -598,33 +599,27 @@ export default function App() {
             </div>
             <div className="chart-card">
               <h3>{t("chartCapacityDist")}</h3>
-              <div className="capacity-chart-scroll">
-                <ResponsiveContainer width="100%" height={Math.max(260, capacityData.length * 34)}>
-                  <BarChart
-                    data={capacityData}
-                    layout="vertical"
-                    margin={{ top: 4, right: 24, bottom: 4, left: 8 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                    <XAxis type="number" tick={{ fontSize: 11 }} allowDecimals={false} />
-                    <YAxis
-                      type="category"
-                      dataKey="name"
-                      width={210}
-                      interval={0}
-                      tick={{ fontSize: 11 }}
-                      tickFormatter={(value) => String(value).length > 30 ? `${String(value).slice(0, 30)}…` : value}
-                    />
-                    <Tooltip
-                      formatter={(value, name, item) => [
-                        Number(value).toLocaleString(i18n.language),
-                        name === "capacity" ? t("thCapacity") : name
-                      ]}
-                      labelFormatter={(label) => label}
-                    />
-                    <Bar dataKey="capacity" fill="#2563eb" radius={[0, 5, 5, 0]} name={t("thCapacity")} />
-                  </BarChart>
-                </ResponsiveContainer>
+              <div className="capacity-list">
+                {capacityData.map((item) => {
+                  const pct = Math.max(4, Math.round((item.capacity / maxLotCapacity) * 100));
+                  const occupancyPct = item.capacity > 0 ? Math.round((item.occupied / item.capacity) * 100) : 0;
+                  return (
+                    <div key={item.name} className="capacity-row">
+                      <div className="capacity-row-head">
+                        <span title={item.name}>{item.name}</span>
+                        <b>{item.capacity.toLocaleString(i18n.language)}</b>
+                      </div>
+                      <div className="capacity-bar-track" aria-label={`${item.name}: ${item.capacity}`}>
+                        <div className="capacity-bar-fill" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="capacity-row-meta">
+                        <span>{t("thAvailable")}: {item.available.toLocaleString(i18n.language)}</span>
+                        <span>{t("thOccupancy")}: {occupancyPct}%</span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {capacityData.length === 0 && <div className="empty">{t("emptyEvents")}</div>}
               </div>
             </div>
           </div>
